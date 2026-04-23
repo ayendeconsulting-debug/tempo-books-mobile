@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import * as SecureStore from 'expo-secure-store';
 import { Platform, Linking, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { apiClient } from './api';
@@ -16,15 +17,33 @@ Notifications.setNotificationHandler({
 });
 
 /**
+ * SecureStore key used by the Settings toggle to gate push registration.
+ * Defined here so notifications.ts and settings.tsx share a single literal.
+ * Unset = notifications ON (default); literal string 'false' = OFF.
+ */
+export const NOTIFICATIONS_ENABLED_KEY = 'notifications_enabled';
+
+/**
  * Request notification permission, get the Expo push token,
  * and register it with the backend via PATCH /businesses/me/push-token.
  *
  * Safe to call multiple times -- the service layer no-ops if the token
  * hasn't changed, and this function swallows all errors so it never
  * blocks the auth flow.
+ *
+ * Honors the user's Settings toggle: if NOTIFICATIONS_ENABLED_KEY is
+ * explicitly 'false', skips registration silently. Unset defaults to ON
+ * so existing users (who never saw the toggle) keep receiving pushes.
  */
 export async function registerForPushNotifications(): Promise<void> {
   try {
+    // Honor explicit user preference before anything else
+    const enabled = await SecureStore.getItemAsync(NOTIFICATIONS_ENABLED_KEY);
+    if (enabled === 'false') {
+      console.log('[Push] Skipped: user disabled notifications');
+      return;
+    }
+
     // Push notifications only work on physical devices
     if (!Device.isDevice) {
       console.log('[Push] Skipped: not a physical device');
@@ -86,13 +105,6 @@ export async function clearPushToken(): Promise<void> {
     console.warn('[Push] Clear failed (non-fatal):', err?.message ?? err);
   }
 }
-
-/**
- * SecureStore key used by the Settings toggle (Phase 20.1.h) to gate push
- * registration. Defined here so notifications.ts and settings.tsx share a
- * single literal.
- */
-export const NOTIFICATIONS_ENABLED_KEY = 'notifications_enabled';
 
 /**
  * Wire up notification tap handling with deep-link routing.
