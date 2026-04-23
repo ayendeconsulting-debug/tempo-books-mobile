@@ -33,7 +33,6 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: colors.header },
         headerTintColor: '#ffffff',
         headerTitleStyle: { fontWeight: '600' },
-        contentStyle: { backgroundColor: colors.background },
       }}
     >
       <Tabs.Screen name="index" options={{ title: 'Dashboard', tabBarIcon: ({ focused }) => <TabIcon emoji="📊" focused={focused} /> }} />
