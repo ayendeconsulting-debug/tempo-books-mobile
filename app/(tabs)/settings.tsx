@@ -2,15 +2,17 @@ import { useAuth, useOrganizationList, useUser } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Constants from 'expo-constants';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, ScrollView,
+  ActivityIndicator, Alert, Modal, ScrollView, Switch,
   Text, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 import { ThemeMode, useTheme } from '../../lib/themeContext';
+import * as SecureStore from 'expo-secure-store';
+import { registerForPushNotifications, clearPushToken, NOTIFICATIONS_ENABLED_KEY } from '../../lib/notifications';
 
 const WEB_APP = 'https://gettempo.ca';
 
@@ -57,6 +59,31 @@ export default function SettingsScreen() {
       return res.data;
     },
   });
+
+  // Push notifications toggle -- reads persisted preference on mount.
+  // Default is ON: unset SecureStore value is treated as enabled so existing
+  // users (who upgraded from AAB v1 and never saw the toggle) keep receiving pushes.
+  const [pushEnabled, setPushEnabled] = useState(true);
+
+  useEffect(() => {
+    SecureStore.getItemAsync(NOTIFICATIONS_ENABLED_KEY)
+      .then(v => setPushEnabled(v !== 'false'))
+      .catch(() => {});
+  }, []);
+
+  async function handleTogglePush(next: boolean) {
+    setPushEnabled(next);
+    try {
+      await SecureStore.setItemAsync(NOTIFICATIONS_ENABLED_KEY, next ? 'true' : 'false');
+    } catch (err) {
+      console.warn('[Settings] Failed to persist notification preference:', err);
+    }
+    if (next) {
+      registerForPushNotifications().catch(() => {});
+    } else {
+      clearPushToken().catch(() => {});
+    }
+  }
 
   async function handleSwitchBusiness(orgId: string, orgName: string) {
     if (!setActive) return;
@@ -220,6 +247,21 @@ export default function SettingsScreen() {
               ))}
             </View>
           </View>
+        </Section>
+
+        {/* Notifications section */}
+        <Section title="Notifications">
+          <Row
+            label="Push Notifications"
+            rightElement={
+              <Switch
+                value={pushEnabled}
+                onValueChange={handleTogglePush}
+                trackColor={{ false: colors.divider, true: colors.primary }}
+                thumbColor="#fff"
+              />
+            }
+          />
         </Section>
 
         {/* App section */}
