@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -34,18 +34,85 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+// Safely parse params.data from the invoices-list navigation fast path.
+// Returns null if the param is missing or JSON is malformed -- screen then
+// falls back to fetching by id.
+function parseDataParam(raw: unknown): any | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export default function InvoiceDetailScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
   const { getToken } = useAuth();
 
-  const invoice = params.data ? JSON.parse(params.data as string) : null;
-  const [localStatus, setLocalStatus] = useState<string>(invoice?.status ?? 'draft');
-  const [loading, setLoading] = useState(false);
+  // Fast path: invoices-list passes the full object as a JSON-stringified
+  // `data` param. Initialize synchronously so there's no loading flash.
+  const initialInvoice = parseDataParam(params.data);
 
-  if (!invoice) {
+  const [invoice, setInvoice] = useState<any | null>(initialInvoice);
+  const [localStatus, setLocalStatus] = useState<string>(initialInvoice?.status ?? 'draft');
+  const [loading, setLoading] = useState(false);
+  const [fetchStatus, setFetchStatus] = useState<'loaded' | 'loading' | 'notfound'>(
+    initialInvoice ? 'loaded' : 'loading',
+  );
+
+  // Deep-link fetch path: if we don't already have the invoice from params.data,
+  // try to fetch by id (e.g. a push-notification tap lands here with only an id).
+  useEffect(() => {
+    if (invoice) return;
+
+    const rawId = params.id;
+    const id = Array.isArray(rawId) ? rawId[0] : rawId;
+    if (typeof id !== 'string' || id.length === 0) {
+      setFetchStatus('notfound');
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken();
+        setAuthToken(token);
+        const res = await apiClient.get(`/invoices/${id}`);
+        if (cancelled) return;
+        if (res.data?.id) {
+          setInvoice(res.data);
+          setLocalStatus(res.data.status ?? 'draft');
+          setFetchStatus('loaded');
+        } else {
+          setFetchStatus('notfound');
+        }
+      } catch (err: any) {
+        if (cancelled) return;
+        console.warn('[Invoice] Fetch by id failed:', err?.message ?? err);
+        setFetchStatus('notfound');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Loading state -- only shown when we arrived with just an id.
+  if (fetchStatus === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
+        <ActivityIndicator size="large" color="#0F6E56" />
+      </View>
+    );
+  }
+
+  // Not-found state -- fetch errored or no id/data provided.
+  if (fetchStatus === 'notfound' || !invoice) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
         <Text style={{ color: '#9CA3AF' }}>Invoice not found</Text>
       </View>
     );
@@ -97,12 +164,12 @@ export default function InvoiceDetailScreen() {
   }
 
   function handleRecordPayment() {
-    // Record Payment requires chart-of-accounts selection — handled via web app
+    // Record Payment requires chart-of-accounts selection -- handled via web app
     Linking.openURL(`${WEB_APP}/invoices/${invoice.id}`);
   }
 
   function handleDownloadPdf() {
-    // PDF requires auth — open invoice page on web app
+    // PDF requires auth -- open invoice page on web app
     Linking.openURL(`${WEB_APP}/invoices/${invoice.id}`);
   }
 
