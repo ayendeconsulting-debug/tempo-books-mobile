@@ -1,49 +1,51 @@
 {
-  "expo": {
-    "name": "Tempo Books",
-    "slug": "tempo-books-mobile",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "scheme": "tempbooks",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1B6B4A"
-    },
-    "android": {
-      "versionCode": 2,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1B6B4A"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "ca.gettempo.books"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#0F6E56",
-          "androidMode": "default",
-          "androidCollapsedTitle": "Tempo Books"
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "612abef5-6c62-4a5e-885d-59a555f07977"
-      }
-    }
-  }
+    "expo":  {
+                 "name":  "Tempo Books",
+                 "slug":  "tempo-books-mobile",
+                 "version":  "1.0.1",
+                 "orientation":  "portrait",
+                 "icon":  "./assets/icon.png",
+                 "scheme":  "tempbooks",
+                 "userInterfaceStyle":  "automatic",
+                 "newArchEnabled":  true,
+                 "splash":  {
+                                "image":  "./assets/splash-icon.png",
+                                "resizeMode":  "contain",
+                                "backgroundColor":  "#1B6B4A"
+                            },
+                 "android":  {
+                                 "versionCode":  3,
+                                 "adaptiveIcon":  {
+                                                      "foregroundImage":  "./assets/adaptive-icon.png",
+                                                      "backgroundColor":  "#1B6B4A"
+                                                  },
+                                 "edgeToEdgeEnabled":  true,
+                                 "predictiveBackGestureEnabled":  false,
+                                 "package":  "ca.gettempo.books"
+                             },
+                 "plugins":  [
+                                 "expo-router",
+                                 "expo-secure-store",
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "icon":  "./assets/notification-icon.png",
+                                         "color":  "#0F6E56",
+                                         "androidMode":  "default",
+                                         "androidCollapsedTitle":  "Tempo Books"
+                                     }
+                                 ]
+                             ],
+                 "experiments":  {
+                                     "typedRoutes":  true
+                                 },
+                 "extra":  {
+                               "router":  {
+
+                                          },
+                               "eas":  {
+                                           "projectId":  "612abef5-6c62-4a5e-885d-59a555f07977"
+                                       }
+                           }
+             }
 }
