@@ -43,18 +43,33 @@ export default function SignInScreen() {
 
     setLoadingEmail(true);
     try {
-      const attempt = await signIn.create({
+      let attempt = await signIn.create({
+        strategy: 'password',
         identifier: trimmedEmail,
         password,
       });
 
+      // Fallback: if create() returns 'needs_first_factor' (some Clerk configs
+      // require an explicit second call), complete via attemptFirstFactor.
+      if (attempt.status === 'needs_first_factor') {
+        attempt = await signIn.attemptFirstFactor({
+          strategy: 'password',
+          password,
+        });
+      }
+
       if (attempt.status === 'complete' && attempt.createdSessionId && setActiveSession) {
         await setActiveSession({ session: attempt.createdSessionId });
       } else {
-        setError('Sign in could not be completed. Please try again.');
+        setError(`Sign in could not be completed (status: ${attempt.status}). Please try again.`);
       }
     } catch (err: any) {
-      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? err?.message ?? 'Something went wrong.';
+      const msg =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        err?.errors?.[0]?.code ??
+        err?.message ??
+        'Something went wrong.';
       setError(msg);
     } finally {
       setLoadingEmail(false);
