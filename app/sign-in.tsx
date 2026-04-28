@@ -16,20 +16,52 @@ import {
 
 WebBrowser.maybeCompleteAuthSession();
 
+type Step = 'credentials' | 'second_factor';
+type SecondFactorStrategy = 'totp' | 'backup_code';
+
 export default function SignInScreen() {
   const { startSSOFlow } = useSSO();
   const { signIn, setActive: setActiveSession, isLoaded } = useSignIn();
 
+  const [step, setStep] = useState<Step>('credentials');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [secondFactorStrategy, setSecondFactorStrategy] = useState<SecondFactorStrategy>('totp');
+  const [showStrategyPicker, setShowStrategyPicker] = useState(false);
+  const [hasBackupCode, setHasBackupCode] = useState(false);
+
   const [loadingEmail, setLoadingEmail] = useState(false);
   const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingMfa, setLoadingMfa] = useState(false);
   const [error, setError] = useState('');
 
   const redirectUrl = makeRedirectUri({
     scheme: 'tempbooks',
     path: 'sign-in',
   });
+
+  function resetToCredentials() {
+    setStep('credentials');
+    setCode('');
+    setError('');
+    setShowStrategyPicker(false);
+  }
+
+  function inspectSupportedSecondFactors() {
+    if (!signIn) return;
+    const factors = signIn.supportedSecondFactors ?? [];
+    const hasTotp = factors.some((f) => f.strategy === 'totp');
+    const hasBackup = factors.some((f) => f.strategy === 'backup_code');
+    setHasBackupCode(hasBackup);
+    // Default to TOTP if present, otherwise backup_code, otherwise leave at totp.
+    if (hasTotp) {
+      setSecondFactorStrategy('totp');
+    } else if (hasBackup) {
+      setSecondFactorStrategy('backup_code');
+    }
+  }
 
   async function handleEmailSignIn() {
     if (!isLoaded || !signIn) return;
@@ -60,9 +92,16 @@ export default function SignInScreen() {
 
       if (attempt.status === 'complete' && attempt.createdSessionId && setActiveSession) {
         await setActiveSession({ session: attempt.createdSessionId });
-      } else {
-        setError(`Sign in could not be completed (status: ${attempt.status}). Please try again.`);
+        return;
       }
+
+      if (attempt.status === 'needs_second_factor') {
+        inspectSupportedSecondFactors();
+        setStep('second_factor');
+        return;
+      }
+
+      setError(`Sign in could not be completed (status: ${attempt.status}). Please try again.`);
     } catch (err: any) {
       const msg =
         err?.errors?.[0]?.longMessage ??
@@ -73,6 +112,42 @@ export default function SignInScreen() {
       setError(msg);
     } finally {
       setLoadingEmail(false);
+    }
+  }
+
+  async function handleVerifySecondFactor() {
+    if (!isLoaded || !signIn) return;
+    setError('');
+
+    const trimmedCode = code.trim();
+    if (!trimmedCode) {
+      setError('Please enter the verification code.');
+      return;
+    }
+
+    setLoadingMfa(true);
+    try {
+      const attempt = await signIn.attemptSecondFactor({
+        strategy: secondFactorStrategy,
+        code: trimmedCode,
+      });
+
+      if (attempt.status === 'complete' && attempt.createdSessionId && setActiveSession) {
+        await setActiveSession({ session: attempt.createdSessionId });
+        return;
+      }
+
+      setError(`Verification could not be completed (status: ${attempt.status}). Please try again.`);
+    } catch (err: any) {
+      const msg =
+        err?.errors?.[0]?.longMessage ??
+        err?.errors?.[0]?.message ??
+        err?.errors?.[0]?.code ??
+        err?.message ??
+        'Invalid code. Please try again.';
+      setError(msg);
+    } finally {
+      setLoadingMfa(false);
     }
   }
 
@@ -97,8 +172,152 @@ export default function SignInScreen() {
     }
   }
 
-  const anyLoading = loadingEmail || loadingGoogle;
+  const anyLoading = loadingEmail || loadingGoogle || loadingMfa;
 
+  // ===== SECOND FACTOR SCREEN =====
+  if (step === 'second_factor') {
+    const codeLabel = secondFactorStrategy === 'totp' ? '6-digit code' : 'Backup code';
+    const codeHelp =
+      secondFactorStrategy === 'totp'
+        ? 'Enter the 6-digit code from your authenticator app.'
+        : 'Enter one of your saved backup codes.';
+
+    return (
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1 bg-white"
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View className="mb-8 items-center">
+            <Image
+              source={require('../assets/tempo-logo-bar.png')}
+              style={{ width: 72, height: 72, borderRadius: 16 }}
+              resizeMode="contain"
+            />
+            <Text className="text-2xl font-bold text-gray-900 mt-4">Two-step verification</Text>
+            <Text className="text-gray-500 mt-1 text-center px-4">{codeHelp}</Text>
+          </View>
+
+          <View style={{ marginBottom: 16 }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>{codeLabel}</Text>
+            <TextInput
+              value={code}
+              onChangeText={setCode}
+              placeholder={secondFactorStrategy === 'totp' ? '123456' : 'XXXX-XXXX'}
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType={secondFactorStrategy === 'totp' ? 'number-pad' : 'default'}
+              textContentType="oneTimeCode"
+              editable={!anyLoading}
+              autoFocus
+              style={{
+                borderWidth: 1.5,
+                borderColor: '#E5E7EB',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 14,
+                fontSize: 16,
+                color: '#111827',
+                backgroundColor: '#FFFFFF',
+                letterSpacing: secondFactorStrategy === 'totp' ? 4 : 1,
+              }}
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={handleVerifySecondFactor}
+            disabled={anyLoading}
+            style={{
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#0F6E56',
+              borderRadius: 14,
+              paddingVertical: 14,
+              paddingHorizontal: 24,
+              marginBottom: 16,
+              opacity: anyLoading ? 0.7 : 1,
+            }}
+          >
+            {loadingMfa ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Verify</Text>
+            )}
+          </TouchableOpacity>
+
+          {hasBackupCode && (
+            <TouchableOpacity
+              onPress={() => setShowStrategyPicker(!showStrategyPicker)}
+              disabled={anyLoading}
+              style={{ alignItems: 'center', paddingVertical: 8, marginBottom: 8 }}
+            >
+              <Text style={{ color: '#0F6E56', fontSize: 14, fontWeight: '500' }}>
+                Use a different method
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {showStrategyPicker && (
+            <View style={{ marginBottom: 16, paddingVertical: 8 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setSecondFactorStrategy('totp');
+                  setCode('');
+                  setShowStrategyPicker(false);
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderWidth: 1,
+                  borderColor: secondFactorStrategy === 'totp' ? '#0F6E56' : '#E5E7EB',
+                  borderRadius: 10,
+                  marginBottom: 8,
+                }}
+              >
+                <Text style={{ fontWeight: '600', color: '#111827' }}>Authenticator app</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>6-digit code from your app</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setSecondFactorStrategy('backup_code');
+                  setCode('');
+                  setShowStrategyPicker(false);
+                }}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderWidth: 1,
+                  borderColor: secondFactorStrategy === 'backup_code' ? '#0F6E56' : '#E5E7EB',
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ fontWeight: '600', color: '#111827' }}>Backup code</Text>
+                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Use one of your saved recovery codes</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <TouchableOpacity
+            onPress={resetToCredentials}
+            disabled={anyLoading}
+            style={{ alignItems: 'center', paddingVertical: 12, marginTop: 8 }}
+          >
+            <Text style={{ color: '#6B7280', fontSize: 14 }}>Cancel</Text>
+          </TouchableOpacity>
+
+          {error ? (
+            <Text className="text-red-600 text-sm text-center mt-4">{error}</Text>
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
+  // ===== CREDENTIALS SCREEN =====
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
