@@ -1,4 +1,4 @@
-import { useSSO } from '@clerk/clerk-expo';
+import { useSignIn, useSSO } from '@clerk/clerk-expo';
 import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
@@ -7,7 +7,9 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,7 +18,12 @@ WebBrowser.maybeCompleteAuthSession();
 
 export default function SignInScreen() {
   const { startSSOFlow } = useSSO();
-  const [loading, setLoading] = useState(false);
+  const { signIn, setActive: setActiveSession, isLoaded } = useSignIn();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [error, setError] = useState('');
 
   const redirectUrl = makeRedirectUri({
@@ -24,10 +31,39 @@ export default function SignInScreen() {
     path: 'sign-in',
   });
 
-  async function handleGoogleSignIn() {
-    setLoading(true);
+  async function handleEmailSignIn() {
+    if (!isLoaded || !signIn) return;
     setError('');
-    console.log('Redirect URL:', redirectUrl);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setError('Please enter your email and password.');
+      return;
+    }
+
+    setLoadingEmail(true);
+    try {
+      const attempt = await signIn.create({
+        identifier: trimmedEmail,
+        password,
+      });
+
+      if (attempt.status === 'complete' && attempt.createdSessionId && setActiveSession) {
+        await setActiveSession({ session: attempt.createdSessionId });
+      } else {
+        setError('Sign in could not be completed. Please try again.');
+      }
+    } catch (err: any) {
+      const msg = err?.errors?.[0]?.longMessage ?? err?.errors?.[0]?.message ?? err?.message ?? 'Something went wrong.';
+      setError(msg);
+    } finally {
+      setLoadingEmail(false);
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    setLoadingGoogle(true);
+    setError('');
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
@@ -42,17 +78,22 @@ export default function SignInScreen() {
       const msg = err?.errors?.[0]?.longMessage ?? err?.message ?? 'Something went wrong.';
       setError(msg);
     } finally {
-      setLoading(false);
+      setLoadingGoogle(false);
     }
   }
+
+  const anyLoading = loadingEmail || loadingGoogle;
 
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       className="flex-1 bg-white"
     >
-      <View className="flex-1 justify-center px-6">
-        <View className="mb-10 items-center">
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="mb-8 items-center">
           <Image
             source={require('../assets/tempo-logo-bar.png')}
             style={{ width: 72, height: 72, borderRadius: 16 }}
@@ -62,27 +103,104 @@ export default function SignInScreen() {
           <Text className="text-gray-500 mt-1">Sign in to your account</Text>
         </View>
 
+        <View style={{ marginBottom: 12 }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            textContentType="emailAddress"
+            editable={!anyLoading}
+            style={{
+              borderWidth: 1.5,
+              borderColor: '#E5E7EB',
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              fontSize: 16,
+              color: '#111827',
+              backgroundColor: '#FFFFFF',
+            }}
+          />
+        </View>
+
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Password</Text>
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Your password"
+            placeholderTextColor="#9CA3AF"
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="password"
+            editable={!anyLoading}
+            style={{
+              borderWidth: 1.5,
+              borderColor: '#E5E7EB',
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              fontSize: 16,
+              color: '#111827',
+              backgroundColor: '#FFFFFF',
+            }}
+          />
+        </View>
+
+        <TouchableOpacity
+          onPress={handleEmailSignIn}
+          disabled={anyLoading}
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#0F6E56',
+            borderRadius: 14,
+            paddingVertical: 14,
+            paddingHorizontal: 24,
+            marginBottom: 20,
+            opacity: anyLoading ? 0.7 : 1,
+          }}
+        >
+          {loadingEmail ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Sign in</Text>
+          )}
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+          <Text style={{ marginHorizontal: 12, color: '#9CA3AF', fontSize: 12 }}>or</Text>
+          <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+        </View>
+
         <TouchableOpacity
           onPress={handleGoogleSignIn}
-          disabled={loading}
+          disabled={anyLoading}
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            backgroundColor: '#ffffff',
+            backgroundColor: '#FFFFFF',
             borderWidth: 1.5,
             borderColor: '#E5E7EB',
             borderRadius: 14,
             paddingVertical: 14,
             paddingHorizontal: 24,
-            marginBottom: 16,
             shadowColor: '#000',
             shadowOpacity: 0.05,
             shadowRadius: 4,
             elevation: 2,
+            opacity: anyLoading ? 0.7 : 1,
           }}
         >
-          {loading ? (
+          {loadingGoogle ? (
             <ActivityIndicator color="#0F6E56" />
           ) : (
             <>
@@ -97,17 +215,13 @@ export default function SignInScreen() {
         </TouchableOpacity>
 
         {error ? (
-          <Text className="text-red-600 text-sm text-center mt-2">{error}</Text>
+          <Text className="text-red-600 text-sm text-center mt-4">{error}</Text>
         ) : null}
 
-        <Text className="text-center text-gray-400 text-xs mt-4">
-          Redirect: {redirectUrl}
-        </Text>
-
-        <Text className="text-center text-gray-400 text-xs mt-4">
+        <Text className="text-center text-gray-400 text-xs mt-6">
           Manage your account at gettempo.ca
         </Text>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
