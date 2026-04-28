@@ -17,7 +17,7 @@ import {
 WebBrowser.maybeCompleteAuthSession();
 
 type Step = 'credentials' | 'second_factor';
-type SecondFactorStrategy = 'totp' | 'backup_code';
+type SecondFactorStrategy = 'email_code' | 'totp' | 'backup_code';
 
 export default function SignInScreen() {
   const { startSSOFlow } = useSSO();
@@ -49,14 +49,28 @@ export default function SignInScreen() {
     setShowStrategyPicker(false);
   }
 
-  function inspectSupportedSecondFactors() {
+  async function prepareSecondFactorAndPickStrategy() {
     if (!signIn) return;
     const factors = signIn.supportedSecondFactors ?? [];
+    const emailFactor = factors.find((f) => f.strategy === 'email_code');
     const hasTotp = factors.some((f) => f.strategy === 'totp');
     const hasBackup = factors.some((f) => f.strategy === 'backup_code');
     setHasBackupCode(hasBackup);
-    // Default to TOTP if present, otherwise backup_code, otherwise leave at totp.
-    if (hasTotp) {
+
+    // Client Trust (Clerk credential-stuffing defense, on by default since
+    // Nov 2025) returns email_code in supportedSecondFactors for new-device
+    // sign-ins when MFA is not enrolled. Send the email code immediately so
+    // it lands in the inbox before the user reaches the verification screen.
+    // If real MFA is enrolled (Pro plan, future), fall back to TOTP /
+    // backup_code -- those don't need a prepare step because the code is
+    // already on the user's device.
+    if (emailFactor && emailFactor.strategy === 'email_code') {
+      setSecondFactorStrategy('email_code');
+      await signIn.prepareSecondFactor({
+        strategy: 'email_code',
+        emailAddressId: emailFactor.emailAddressId,
+      });
+    } else if (hasTotp) {
       setSecondFactorStrategy('totp');
     } else if (hasBackup) {
       setSecondFactorStrategy('backup_code');
@@ -96,7 +110,7 @@ export default function SignInScreen() {
       }
 
       if (attempt.status === 'needs_second_factor') {
-        inspectSupportedSecondFactors();
+        await prepareSecondFactorAndPickStrategy();
         setStep('second_factor');
         return;
       }
@@ -176,11 +190,19 @@ export default function SignInScreen() {
 
   // ===== SECOND FACTOR SCREEN =====
   if (step === 'second_factor') {
-    const codeLabel = secondFactorStrategy === 'totp' ? '6-digit code' : 'Backup code';
-    const codeHelp =
-      secondFactorStrategy === 'totp'
-        ? 'Enter the 6-digit code from your authenticator app.'
-        : 'Enter one of your saved backup codes.';
+    const isEmailCode = secondFactorStrategy === 'email_code';
+    const isTotp = secondFactorStrategy === 'totp';
+    const screenTitle = isEmailCode ? 'Check your email' : 'Two-step verification';
+    const codeLabel = isEmailCode ? 'Verification code' : isTotp ? '6-digit code' : 'Backup code';
+    const codeHelp = isEmailCode
+      ? `We sent a 6-digit code to ${email}. Enter it below to continue.`
+      : isTotp
+      ? 'Enter the 6-digit code from your authenticator app.'
+      : 'Enter one of your saved backup codes.';
+    const codePlaceholder = isEmailCode || isTotp ? '123456' : 'XXXX-XXXX';
+    const codeKeyboardType: 'number-pad' | 'default' =
+      isEmailCode || isTotp ? 'number-pad' : 'default';
+    const codeLetterSpacing = isEmailCode || isTotp ? 4 : 1;
 
     return (
       <KeyboardAvoidingView
@@ -197,7 +219,7 @@ export default function SignInScreen() {
               style={{ width: 72, height: 72, borderRadius: 16 }}
               resizeMode="contain"
             />
-            <Text className="text-2xl font-bold text-gray-900 mt-4">Two-step verification</Text>
+            <Text className="text-2xl font-bold text-gray-900 mt-4">{screenTitle}</Text>
             <Text className="text-gray-500 mt-1 text-center px-4">{codeHelp}</Text>
           </View>
 
@@ -206,11 +228,11 @@ export default function SignInScreen() {
             <TextInput
               value={code}
               onChangeText={setCode}
-              placeholder={secondFactorStrategy === 'totp' ? '123456' : 'XXXX-XXXX'}
+              placeholder={codePlaceholder}
               placeholderTextColor="#9CA3AF"
               autoCapitalize="none"
               autoCorrect={false}
-              keyboardType={secondFactorStrategy === 'totp' ? 'number-pad' : 'default'}
+              keyboardType={codeKeyboardType}
               textContentType="oneTimeCode"
               editable={!anyLoading}
               autoFocus
@@ -223,7 +245,7 @@ export default function SignInScreen() {
                 fontSize: 16,
                 color: '#111827',
                 backgroundColor: '#FFFFFF',
-                letterSpacing: secondFactorStrategy === 'totp' ? 4 : 1,
+                letterSpacing: codeLetterSpacing,
               }}
             />
           </View>
