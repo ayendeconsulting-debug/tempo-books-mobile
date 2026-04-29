@@ -1,5 +1,4 @@
 import { useAuth } from '@clerk/clerk-expo';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ClassifySheet from '../../components/ClassifySheet';
 import PersonalCategorySheet from '../../components/PersonalCategorySheet';
+import DocumentAttachments from '../../components/DocumentAttachments';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 
@@ -54,8 +54,6 @@ export default function TransactionDetailScreen() {
   const [posting, setPosting] = useState(false);
   const [unclassifying, setUnclassifying] = useState(false);
   const [togglingTag, setTogglingTag] = useState(false);
-  const [uploadingReceipt, setUploadingReceipt] = useState(false);
-  const [receiptSaved, setReceiptSaved] = useState(false);
 
   if (!transaction) {
     return (
@@ -159,52 +157,6 @@ export default function TransactionDetailScreen() {
   }
 
   // ── Receipt capture ─────────────────────────────────────────────────
-  async function handleAttachReceipt() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert('Permission required', 'Please allow access to your photo library.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
-    });
-    if (result.canceled || !result.assets?.length) return;
-
-    const asset = result.assets[0];
-    const fileName = asset.fileName ?? `receipt_${Date.now()}.jpg`;
-    const fileType = fileName.endsWith('.png') ? 'png' : 'jpg';
-    const fileSizeBytes = asset.fileSize ?? 500000;
-
-    setUploadingReceipt(true);
-    try {
-      const token = await getToken();
-      setAuthToken(token);
-      const urlRes = await apiClient.post('/documents/upload', {
-        file_name: fileName,
-        file_type: fileType,
-        file_size_bytes: fileSizeBytes,
-        raw_transaction_id: transaction.id,
-      });
-      const { url, key, bucket } = urlRes.data;
-      const imageRes = await fetch(asset.uri);
-      const blob = await imageRes.blob();
-      await fetch(url, { method: 'PUT', body: blob, headers: { 'Content-Type': `image/${fileType}` } });
-      await apiClient.post('/documents', {
-        s3_key: key, s3_bucket: bucket,
-        file_name: fileName, file_type: fileType,
-        file_size_bytes: fileSizeBytes,
-        raw_transaction_id: transaction.id,
-      });
-      setReceiptSaved(true);
-      Alert.alert('Receipt attached', 'Your receipt has been saved successfully.');
-    } catch (err: any) {
-      Alert.alert('Upload failed', err?.response?.data?.message ?? 'Could not upload receipt.');
-    } finally {
-      setUploadingReceipt(false);
-    }
-  }
-
   // ── Decide which primary action to show ─────────────────────────────
   // business: classify/post/unclassify
   // personal: categorize
@@ -255,6 +207,13 @@ export default function TransactionDetailScreen() {
         {categoryName ? <Field label="Category" value={categoryName} /> : null}
         {transaction.tax_code ? <Field label="Tax Code" value={transaction.tax_code} /> : null}
       </View>
+
+      {/* Receipts (DocumentAttachments - Phase 32b) */}
+      <DocumentAttachments
+        rawTransactionId={transaction.id}
+        transactionAmount={amount}
+        transactionDate={transaction.date}
+      />
 
       {/* Actions */}
       <View style={{ marginHorizontal: 16, marginTop: 16, gap: 10 }}>
@@ -345,24 +304,6 @@ export default function TransactionDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Receipt */}
-        <TouchableOpacity
-          onPress={handleAttachReceipt}
-          disabled={uploadingReceipt || receiptSaved}
-          style={{
-            borderRadius: 14, paddingVertical: 13, alignItems: 'center',
-            borderWidth: 1.5,
-            borderColor: receiptSaved ? '#0F6E56' : '#E5E7EB',
-            backgroundColor: receiptSaved ? '#EDF7F2' : '#fff',
-          }}
-        >
-          {uploadingReceipt
-            ? <ActivityIndicator color="#0F6E56" />
-            : <Text style={{ fontSize: 14, fontWeight: '600', color: receiptSaved ? '#0F6E56' : '#374151' }}>
-                {receiptSaved ? '✓ Receipt Attached' : 'Attach Receipt'}
-              </Text>
-          }
-        </TouchableOpacity>
 
         {/* AI Explain */}
         <TouchableOpacity

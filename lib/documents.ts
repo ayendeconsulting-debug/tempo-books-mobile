@@ -11,7 +11,7 @@ export interface DocumentRecord {
   file_type: string;
   file_size_bytes: number;
   extract_result: ExtractResult | null;
-  extract_status: 'pending' | 'running' | 'complete' | 'failed' | null;
+  extract_status: 'pending' | 'processing' | 'complete' | 'failed' | null;
   created_at: string;
 }
 
@@ -31,12 +31,11 @@ export interface PresignedUploadResponse {
 
 export interface ExtractJobResponse {
   job_id: string;
-  status: 'queued' | 'running' | 'complete' | 'failed';
 }
 
 export interface ExtractJobStatus {
   job_id: string;
-  status: 'queued' | 'running' | 'complete' | 'failed';
+  status: 'queued' | 'processing' | 'complete' | 'failed';
   result?: ExtractResult;
   error?: string;
 }
@@ -44,7 +43,7 @@ export interface ExtractJobStatus {
 // ── Document API ─────────────────────────────────────────────────────
 
 export async function getDocumentsForTransaction(rawTransactionId: string): Promise<DocumentRecord[]> {
-  const res = await apiClient.get(`/documents?raw_transaction_id=${rawTransactionId}`);
+  const res = await apiClient.get(`/documents?rawTransactionId=${rawTransactionId}`);
   return res.data as DocumentRecord[];
 }
 
@@ -127,4 +126,9 @@ export function pollExtractJob(
     };
     tick();
   });
+}
+// Document deletion
+
+export async function deleteDocument(documentId: string): Promise<void> {
+  await apiClient.delete(`/documents/${documentId}`);
 }
