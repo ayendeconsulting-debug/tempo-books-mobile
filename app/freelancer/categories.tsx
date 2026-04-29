@@ -2,14 +2,28 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal,
-  Platform, RefreshControl, ScrollView, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Button from '../../components/ui/Button';
 
+// User-pickable category color palette. Not theme tokens - these are user data
+// (the color a user picks to label a category). Same exemption as item.color.
 const COLORS = ['#EF4444','#F97316','#EAB308','#22C55E','#0F6E56','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#6B7280'];
 
 export default function CategoriesScreen() {
@@ -91,59 +105,168 @@ export default function CategoriesScreen() {
     ...expenseCategories,
   ];
 
+  const inputStyle = {
+    backgroundColor: colors.inputBg,
+    borderWidth: 0.5,
+    borderColor: colors.borderDefault,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    fontFamily: 'Manrope_400Regular' as const,
+    color: colors.inkPrimary,
+    marginBottom: 18,
+  };
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.divider, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Categories</Text>
-        <TouchableOpacity onPress={openAdd} style={{ backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 }}>
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>+ Add</Text>
-        </TouchableOpacity>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surfaceApp }}>
+      <View style={{
+        backgroundColor: colors.surfaceCard,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <Text style={{
+          fontSize: 16,
+          fontFamily: 'Manrope_700Bold',
+          fontWeight: '700',
+          color: colors.inkPrimary,
+        }}>
+          Categories
+        </Text>
+        <Button
+          label="+ Add"
+          onPress={openAdd}
+          variant="primary"
+          size="sm"
+        />
       </View>
 
       {isLoading ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={colors.primary} /></View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={colors.brandPrimary} />
+        </View>
       ) : (
         <View style={{ flex: 1 }}>
           <FlatList
             data={listData}
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ paddingTop: 8, paddingBottom: 100 }}
-            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brandPrimary} />}
             renderItem={({ item }) => {
               if (item._header) {
-                return <View style={{ paddingHorizontal: 16, paddingVertical: 10, backgroundColor: colors.background }}>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: colors.subtext, textTransform: 'uppercase', letterSpacing: 0.5 }}>{item._header}</Text>
-                </View>;
+                return (
+                  <View style={{
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    backgroundColor: colors.surfaceApp,
+                  }}>
+                    <Text style={{
+                      fontSize: 11,
+                      fontFamily: 'Manrope_600SemiBold',
+                      fontWeight: '600',
+                      color: colors.inkSecondary,
+                      textTransform: 'uppercase',
+                      letterSpacing: 1,
+                    }}>
+                      {item._header}
+                    </Text>
+                  </View>
+                );
               }
               const spent = parseFloat(item.spent_this_month ?? 0);
               const target = parseFloat(item.monthly_target ?? 0);
               const progress = target > 0 ? Math.min(spent / target, 1) : 0;
+              const isOver = progress >= 1;
               return (
-                <TouchableOpacity onPress={() => openEdit(item)} activeOpacity={0.7}
-                  style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: item.color ?? colors.subtext, marginRight: 14 }} />
+                <TouchableOpacity
+                  onPress={() => openEdit(item)}
+                  activeOpacity={0.7}
+                  style={{
+                    backgroundColor: colors.surfaceCard,
+                    paddingHorizontal: 16,
+                    paddingVertical: 16,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: colors.borderSubtle,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}
+                >
+                  <View style={{
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
+                    backgroundColor: item.color ?? colors.inkSecondary,
+                    marginRight: 14,
+                  }} />
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '600', color: colors.text }}>{item.name}</Text>
+                    <Text style={{
+                      fontSize: 15,
+                      fontFamily: 'Manrope_600SemiBold',
+                      fontWeight: '600',
+                      color: colors.inkPrimary,
+                    }}>
+                      {item.name}
+                    </Text>
                     {target > 0 && (
                       <View style={{ marginTop: 6 }}>
-                        <View style={{ height: 5, backgroundColor: colors.border, borderRadius: 3 }}>
-                          <View style={{ height: 5, width: `${progress * 100}%`, backgroundColor: progress >= 1 ? colors.danger : (item.color ?? colors.primary), borderRadius: 3 }} />
+                        <View style={{
+                          height: 5,
+                          backgroundColor: colors.borderSubtle,
+                          borderRadius: 3,
+                        }}>
+                          <View style={{
+                            height: 5,
+                            width: `${progress * 100}%`,
+                            backgroundColor: isOver ? colors.accentNegative : (item.color ?? colors.brandPrimary),
+                            borderRadius: 3,
+                          }} />
                         </View>
-                        <Text style={{ fontSize: 12, color: progress >= 1 ? colors.danger : colors.placeholder, marginTop: 3 }}>
+                        <Text style={{
+                          fontSize: 12,
+                          fontFamily: 'Manrope_400Regular',
+                          color: isOver ? colors.accentNegative : colors.inkTertiary,
+                          marginTop: 3,
+                          fontVariant: ['tabular-nums'],
+                        }}>
                           ${spent.toFixed(0)} / ${target.toFixed(0)}
                         </Text>
                       </View>
                     )}
                   </View>
-                  <Text style={{ fontSize: 20, color: colors.placeholder, marginLeft: 8 }}>›</Text>
+                  <Text style={{
+                    fontSize: 20,
+                    color: colors.inkTertiary,
+                    marginLeft: 8,
+                  }}>
+                    ›
+                  </Text>
                 </TouchableOpacity>
               );
             }}
             ListEmptyComponent={
               <View style={{ padding: 48, alignItems: 'center' }}>
                 <Text style={{ fontSize: 32, marginBottom: 8 }}>🏷️</Text>
-                <Text style={{ color: colors.text, fontSize: 15, fontWeight: '600' }}>No categories yet</Text>
-                <Text style={{ color: colors.subtext, fontSize: 13, marginTop: 4 }}>Tap + Add to create one</Text>
+                <Text style={{
+                  color: colors.inkPrimary,
+                  fontSize: 15,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                }}>
+                  No categories yet
+                </Text>
+                <Text style={{
+                  color: colors.inkSecondary,
+                  fontSize: 13,
+                  fontFamily: 'Manrope_400Regular',
+                  marginTop: 4,
+                }}>
+                  Tap + Add to create one
+                </Text>
               </View>
             }
           />
@@ -153,51 +276,181 @@ export default function CategoriesScreen() {
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
-            <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '88%' }}>
+            <View style={{
+              backgroundColor: colors.surfaceCardElevated,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              maxHeight: '88%',
+            }}>
               <View style={{ alignItems: 'center', paddingTop: 12 }}>
-                <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.divider }} />
+                <View style={{
+                  width: 40,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: colors.borderDefault,
+                }} />
               </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingTop: 14, paddingBottom: 4 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{editing ? 'Edit Category' : 'Add Category'}</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={{ fontSize: 15, color: colors.subtext }}>✕</Text>
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: 24,
+                paddingTop: 14,
+                paddingBottom: 4,
+              }}>
+                <Text style={{
+                  fontSize: 18,
+                  lineHeight: 26,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  {editing ? 'Edit Category' : 'Add Category'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setModalVisible(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ fontSize: 15, color: colors.inkSecondary }}>✕</Text>
                 </TouchableOpacity>
               </View>
-              <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.subtext, marginBottom: 6 }}>Name *</Text>
-                <TextInput value={name} onChangeText={setName} placeholder="e.g. Groceries" placeholderTextColor={colors.placeholder}
-                  style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.text, marginBottom: 18 }} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.subtext, marginBottom: 8 }}>Type</Text>
+              <ScrollView
+                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkSecondary,
+                  marginBottom: 6,
+                }}>
+                  Name *
+                </Text>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Groceries"
+                  placeholderTextColor={colors.inkTertiary}
+                  style={inputStyle}
+                />
+
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkSecondary,
+                  marginBottom: 8,
+                }}>
+                  Type
+                </Text>
                 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 18 }}>
-                  {(['expense', 'income'] as const).map((t) => (
-                    <TouchableOpacity key={t} onPress={() => setCategoryType(t)}
-                      style={{ flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: 'center', backgroundColor: categoryType === t ? colors.primary : colors.badgeBg }}>
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: categoryType === t ? '#fff' : colors.subtext, textTransform: 'capitalize' }}>{t}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(['expense', 'income'] as const).map((t) => {
+                    const isActive = categoryType === t;
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        onPress={() => setCategoryType(t)}
+                        activeOpacity={0.7}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 11,
+                          borderRadius: RADIUS.md,
+                          alignItems: 'center',
+                          borderWidth: 0.5,
+                          borderColor: isActive ? colors.brandPrimary : colors.borderDefault,
+                          backgroundColor: isActive ? colors.primaryLight : 'transparent',
+                        }}
+                      >
+                        <Text style={{
+                          fontSize: 14,
+                          fontFamily: 'Manrope_600SemiBold',
+                          fontWeight: '600',
+                          color: isActive ? colors.brandPrimary : colors.inkSecondary,
+                          textTransform: 'capitalize',
+                        }}>
+                          {t}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.subtext, marginBottom: 6 }}>Monthly Target (optional)</Text>
-                <TextInput value={monthlyTarget} onChangeText={setMonthlyTarget} placeholder="0.00" keyboardType="decimal-pad" placeholderTextColor={colors.placeholder}
-                  style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: colors.text, marginBottom: 18 }} />
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.subtext, marginBottom: 10 }}>Color</Text>
+
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkSecondary,
+                  marginBottom: 6,
+                }}>
+                  Monthly Target (optional)
+                </Text>
+                <TextInput
+                  value={monthlyTarget}
+                  onChangeText={setMonthlyTarget}
+                  placeholder="0.00"
+                  keyboardType="decimal-pad"
+                  placeholderTextColor={colors.inkTertiary}
+                  style={inputStyle}
+                />
+
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkSecondary,
+                  marginBottom: 10,
+                }}>
+                  Color
+                </Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
                   {COLORS.map((c) => (
-                    <TouchableOpacity key={c} onPress={() => setColor(c)}
-                      style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: c, borderWidth: color === c ? 3 : 1.5, borderColor: color === c ? colors.text : 'transparent' }} />
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => setColor(c)}
+                      activeOpacity={0.7}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: c,
+                        borderWidth: color === c ? 3 : 1.5,
+                        borderColor: color === c ? colors.brandPrimary : 'transparent',
+                      }}
+                    />
                   ))}
                 </View>
-                {error ? <Text style={{ color: colors.danger, fontSize: 13, marginTop: 14 }}>{error}</Text> : null}
+                {error ? (
+                  <Text style={{
+                    color: colors.accentNegative,
+                    fontSize: 13,
+                    fontFamily: 'Manrope_400Regular',
+                    marginTop: 14,
+                  }}>
+                    {error}
+                  </Text>
+                ) : null}
               </ScrollView>
               <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32, gap: 10 }}>
-                <TouchableOpacity onPress={handleSave} disabled={saving}
-                  style={{ paddingVertical: 15, borderRadius: 14, backgroundColor: saving ? colors.badgeBg : colors.primary, alignItems: 'center' }}>
-                  {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>{editing ? 'Save Changes' : 'Add Category'}</Text>}
-                </TouchableOpacity>
+                <Button
+                  label={editing ? 'Save Changes' : 'Add Category'}
+                  onPress={handleSave}
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={saving}
+                />
                 {editing && (
-                  <TouchableOpacity onPress={handleDelete} disabled={deleting}
-                    style={{ paddingVertical: 15, borderRadius: 14, borderWidth: 1.5, borderColor: colors.danger + '60', alignItems: 'center' }}>
-                    {deleting ? <ActivityIndicator color={colors.danger} /> : <Text style={{ fontSize: 15, fontWeight: '600', color: colors.danger }}>Delete Category</Text>}
-                  </TouchableOpacity>
+                  <Button
+                    label="Delete Category"
+                    onPress={handleDelete}
+                    variant="destructive"
+                    size="lg"
+                    fullWidth
+                    loading={deleting}
+                  />
                 )}
               </View>
             </View>
