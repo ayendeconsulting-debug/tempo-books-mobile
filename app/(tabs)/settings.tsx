@@ -1,6 +1,7 @@
 import { useAuth, useOrganizationList, useUser } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import { useSubscription } from '../../lib/useSubscription';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import {
@@ -48,17 +49,8 @@ export default function SettingsScreen() {
     userMemberships: { infinite: true },
   });
 
-  // Subscription info
-  const { data: subscription } = useQuery({
-    queryKey: ['subscription', activeBusiness?.id],
-    enabled: !!activeBusiness?.id,
-    queryFn: async () => {
-      const token = await getToken();
-      setAuthToken(token);
-      const res = await apiClient.get('/billing/subscription');
-      return res.data;
-    },
-  });
+  // Subscription info — shared hook (cached per businessId across the app)
+  const { data: subscription } = useSubscription();
 
   // Push notifications toggle -- reads persisted preference on mount.
   // Default is ON: unset SecureStore value is treated as enabled so existing
