@@ -1,10 +1,21 @@
 import { useAuth } from '@clerk/clerk-expo';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ScrollView, Text, TouchableOpacity, View, RefreshControl, ActivityIndicator } from 'react-native';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Card from '../../components/ui/Card';
+import KpiTile from '../../components/ui/KpiTile';
+import HeroCard from '../../components/ui/HeroCard';
 
 function sumValues(arr: any[]): number {
   if (!Array.isArray(arr)) return Number(arr) || 0;
@@ -108,116 +119,314 @@ export default function DashboardScreen() {
   const topCategories = (budgetCategories ?? []).filter((c: any) => c.type !== 'income' && c.monthly_target > 0).slice(0, 3);
   const totalNetWorth = (netWorth?.total_assets ?? 0) - (netWorth?.total_liabilities ?? 0);
 
+  const isNetPositive = netIncome >= 0;
+
   return (
     <ScrollView
-      style={{ flex: 1, backgroundColor: colors.background }}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.primary} />}
+      style={{ flex: 1, backgroundColor: colors.surfaceApp }}
+      refreshControl={<RefreshControl refreshing={false} onRefresh={onRefresh} tintColor={colors.brandPrimary} />}
     >
       <View style={{ padding: 16, gap: 12 }}>
+        {/* Header */}
         <View style={{ marginBottom: 4 }}>
-          <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>{activeBusiness?.name ?? 'Loading...'}</Text>
-          <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 2 }}>This month</Text>
-        </View>
-
-        {/* Revenue / Expenses */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          {[
-            { label: 'Revenue', value: fmt(revenue), color: colors.primary },
-            { label: 'Expenses', value: fmt(expenses), color: colors.danger },
-          ].map(({ label, value, color }) => (
-            <View key={label} style={{ flex: 1, backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, elevation: 1 }}>
-              <Text style={{ fontSize: 12, color: colors.subtext, marginBottom: 4 }}>{label}</Text>
-              <Text style={{ fontSize: 20, fontWeight: '700', color }}>{isLoading ? '...' : value}</Text>
-              <Text style={{ fontSize: 11, color: colors.subtext, marginTop: 2 }}>This month</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* Net Income */}
-        <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, borderTopWidth: 3, borderTopColor: netIncome >= 0 ? colors.primary : colors.danger, elevation: 1 }}>
-          <Text style={{ fontSize: 12, color: colors.subtext, marginBottom: 4 }}>Net Income</Text>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: netIncome >= 0 ? colors.primary : colors.danger }}>
-            {isLoading ? '...' : fmt(netIncome)}
+          <Text style={{
+            fontSize: 22,
+            lineHeight: 28,
+            fontFamily: 'Manrope_700Bold',
+            fontWeight: '700',
+            color: colors.inkPrimary,
+          }}>
+            {activeBusiness?.name ?? 'Loading...'}
           </Text>
-          <Text style={{ fontSize: 11, color: colors.subtext, marginTop: 2 }}>This month</Text>
+          <Text style={{
+            fontSize: 12,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkSecondary,
+            marginTop: 2,
+          }}>
+            This month
+          </Text>
+        </View>
+
+        {/* Net Income hero - HeroCard if positive, fallback Card if negative */}
+        {isLoading ? (
+          <Card padding="prominent">
+            <ActivityIndicator color={colors.brandPrimary} />
+          </Card>
+        ) : isNetPositive ? (
+          <HeroCard
+            label="Net income this month"
+            value={fmt(netIncome)}
+          />
+        ) : (
+          <Card accent="negative" padding="prominent">
+            <Text style={{
+              fontSize: 11,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+              color: colors.accentNegative,
+            }}>
+              Net loss this month
+            </Text>
+            <Text style={{
+              fontSize: 28,
+              lineHeight: 34,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: colors.accentNegative,
+              marginTop: 6,
+              fontVariant: ['tabular-nums'],
+            }}>
+              -{fmt(netIncome)}
+            </Text>
+          </Card>
+        )}
+
+        {/* Revenue / Expenses tiles */}
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flex: 1 }}>
+            <KpiTile
+              label="Revenue"
+              value={isLoading ? '...' : fmt(revenue)}
+              accent="positive"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <KpiTile
+              label="Expenses"
+              value={isLoading ? '...' : fmt(expenses)}
+              accent="negative"
+            />
+          </View>
         </View>
 
         {/* Pending Review */}
         <TouchableOpacity
           onPress={() => router.push('/(tabs)/transactions')}
-          style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 1 }}
+          activeOpacity={0.7}
         >
-          <View>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }}>Pending Review</Text>
-            <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 2 }}>Tap to classify</Text>
-          </View>
-          <View style={{ backgroundColor: pendingCount > 0 ? colors.primaryLight : colors.badgeBg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
-            <Text style={{ color: pendingCount > 0 ? colors.primary : colors.subtext, fontWeight: '700', fontSize: 16 }}>{String(pendingCount)}</Text>
-          </View>
+          <Card>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View>
+                <Text style={{
+                  fontSize: 14,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  Pending Review
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                  marginTop: 2,
+                }}>
+                  Tap to classify
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: pendingCount > 0 ? colors.primaryLight : colors.surfaceCardElevated,
+                borderRadius: RADIUS.pill,
+                paddingHorizontal: 14,
+                paddingVertical: 6,
+              }}>
+                <Text style={{
+                  color: pendingCount > 0 ? colors.brandPrimary : colors.inkSecondary,
+                  fontFamily: 'Manrope_700Bold',
+                  fontWeight: '700',
+                  fontSize: 16,
+                  fontVariant: ['tabular-nums'],
+                }}>
+                  {String(pendingCount)}
+                </Text>
+              </View>
+            </View>
+          </Card>
         </TouchableOpacity>
 
         {/* Overdue Invoices */}
         {(overdueCount ?? 0) > 0 && (
-          <View style={{ backgroundColor: colors.dangerLight, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.danger + '40', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.danger }}>Overdue Invoices</Text>
-              <Text style={{ fontSize: 12, color: colors.danger, marginTop: 2, opacity: 0.8 }}>Require attention</Text>
+          <Card accent="negative">
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <View>
+                <Text style={{
+                  fontSize: 14,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.accentNegative,
+                }}>
+                  Overdue Invoices
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                  marginTop: 2,
+                }}>
+                  Require attention
+                </Text>
+              </View>
+              <Text style={{
+                color: colors.accentNegative,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                fontSize: 18,
+                fontVariant: ['tabular-nums'],
+              }}>
+                {String(overdueCount)}
+              </Text>
             </View>
-            <View style={{ backgroundColor: colors.danger + '30', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 }}>
-              <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 16 }}>{String(overdueCount)}</Text>
-            </View>
-          </View>
+          </Card>
         )}
 
         {/* Freelancer: Mileage YTD */}
         {mode === 'freelancer' && mileageData && (
           <TouchableOpacity
             onPress={() => router.push('/freelancer/mileage')}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, elevation: 1 }}
+            activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 12, color: colors.subtext, marginBottom: 4 }}>Mileage YTD</Text>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: colors.text }}>{mileageData.totalKm.toFixed(1)} km</Text>
-            <Text style={{ fontSize: 12, color: colors.primary, marginTop: 4 }}>Est. deduction: {fmt(mileageData.deduction)}</Text>
+            <Card>
+              <Text style={{
+                fontSize: 12,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.inkSecondary,
+                marginBottom: 4,
+              }}>
+                Mileage YTD
+              </Text>
+              <Text style={{
+                fontSize: 20,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+                fontVariant: ['tabular-nums'],
+              }}>
+                {mileageData.totalKm.toFixed(1)} km
+              </Text>
+              <Text style={{
+                fontSize: 12,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.brandPrimary,
+                marginTop: 4,
+                fontVariant: ['tabular-nums'],
+              }}>
+                Est. deduction: {fmt(mileageData.deduction)}
+              </Text>
+            </Card>
           </TouchableOpacity>
         )}
 
         {/* Freelancer: Tax Estimate */}
         {mode === 'freelancer' && taxEstimate && (
-          <View style={{ backgroundColor: colors.warningLight, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.warning + '40', elevation: 1 }}>
-            <Text style={{ fontSize: 12, color: colors.warning, marginBottom: 4 }}>Tax Estimate {new Date().getFullYear()}</Text>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: colors.warning }}>{fmt(taxEstimate.estimated_tax_owing ?? 0)}</Text>
-            <Text style={{ fontSize: 11, color: colors.warning, marginTop: 4, opacity: 0.8 }}>Estimate only — consult a tax professional</Text>
-          </View>
+          <Card accent="warning">
+            <Text style={{
+              fontSize: 12,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.accentWarning,
+              marginBottom: 4,
+            }}>
+              Tax Estimate {new Date().getFullYear()}
+            </Text>
+            <Text style={{
+              fontSize: 20,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: colors.accentWarning,
+              fontVariant: ['tabular-nums'],
+            }}>
+              {fmt(taxEstimate.estimated_tax_owing ?? 0)}
+            </Text>
+            <Text style={{
+              fontSize: 11,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+              marginTop: 4,
+            }}>
+              Estimate only — consult a tax professional
+            </Text>
+          </Card>
         )}
 
         {/* Personal: Budget */}
         {mode === 'personal' && topCategories.length > 0 && (
           <TouchableOpacity
             onPress={() => router.push('/personal/budget')}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, elevation: 1 }}
+            activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 12 }}>Budget</Text>
-            {topCategories.map((cat: any) => {
-              const spent = parseFloat(cat.spent_this_month ?? 0);
-              const target = parseFloat(cat.monthly_target ?? 0);
-              const progress = target > 0 ? Math.min(spent / target, 1) : 0;
-              return (
-                <View key={cat.id} style={{ marginBottom: 10 }}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: cat.color ?? colors.subtext }} />
-                      <Text style={{ fontSize: 13, color: colors.text }}>{cat.name}</Text>
+            <Card>
+              <Text style={{
+                fontSize: 14,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+                marginBottom: 12,
+              }}>
+                Budget
+              </Text>
+              {topCategories.map((cat: any) => {
+                const spent = parseFloat(cat.spent_this_month ?? 0);
+                const target = parseFloat(cat.monthly_target ?? 0);
+                const progress = target > 0 ? Math.min(spent / target, 1) : 0;
+                const isOver = progress >= 1;
+                return (
+                  <View key={cat.id} style={{ marginBottom: 10 }}>
+                    <View style={{
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      marginBottom: 4,
+                    }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 4,
+                          backgroundColor: cat.color ?? colors.inkSecondary,
+                        }} />
+                        <Text style={{
+                          fontSize: 13,
+                          fontFamily: 'Manrope_400Regular',
+                          color: colors.inkPrimary,
+                        }}>
+                          {cat.name}
+                        </Text>
+                      </View>
+                      <Text style={{
+                        fontSize: 12,
+                        fontFamily: 'Manrope_400Regular',
+                        color: isOver ? colors.accentNegative : colors.inkSecondary,
+                        fontVariant: ['tabular-nums'],
+                      }}>
+                        {fmt(spent)} / {fmt(target)}
+                      </Text>
                     </View>
-                    <Text style={{ fontSize: 12, color: progress >= 1 ? colors.danger : colors.subtext }}>
-                      {fmt(spent)} / {fmt(target)}
-                    </Text>
+                    <View style={{
+                      height: 6,
+                      backgroundColor: colors.borderSubtle,
+                      borderRadius: 3,
+                    }}>
+                      <View style={{
+                        height: 6,
+                        width: `${progress * 100}%`,
+                        backgroundColor: isOver ? colors.accentNegative : (cat.color ?? colors.brandPrimary),
+                        borderRadius: 3,
+                      }} />
+                    </View>
                   </View>
-                  <View style={{ height: 6, backgroundColor: colors.border, borderRadius: 3 }}>
-                    <View style={{ height: 6, width: `${progress * 100}%`, backgroundColor: progress >= 1 ? colors.danger : (cat.color ?? colors.primary), borderRadius: 3 }} />
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </Card>
           </TouchableOpacity>
         )}
 
@@ -225,14 +434,46 @@ export default function DashboardScreen() {
         {mode === 'personal' && netWorth != null && (
           <TouchableOpacity
             onPress={() => router.push('/personal/net-worth')}
-            style={{ backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, elevation: 1 }}
+            activeOpacity={0.7}
           >
-            <Text style={{ fontSize: 12, color: colors.subtext, marginBottom: 4 }}>Net Worth</Text>
-            <Text style={{ fontSize: 22, fontWeight: '800', color: totalNetWorth >= 0 ? colors.primary : colors.danger }}>{fmt(totalNetWorth)}</Text>
-            <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
-              <Text style={{ fontSize: 12, color: colors.primary }}>Assets {fmt(netWorth.total_assets ?? 0)}</Text>
-              <Text style={{ fontSize: 12, color: colors.danger }}>Liabilities {fmt(netWorth.total_liabilities ?? 0)}</Text>
-            </View>
+            <Card>
+              <Text style={{
+                fontSize: 12,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.inkSecondary,
+                marginBottom: 4,
+              }}>
+                Net Worth
+              </Text>
+              <Text style={{
+                fontSize: 22,
+                lineHeight: 28,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: totalNetWorth >= 0 ? colors.accentPositive : colors.accentNegative,
+                fontVariant: ['tabular-nums'],
+              }}>
+                {fmt(totalNetWorth)}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.accentPositive,
+                  fontVariant: ['tabular-nums'],
+                }}>
+                  Assets {fmt(netWorth.total_assets ?? 0)}
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.accentNegative,
+                  fontVariant: ['tabular-nums'],
+                }}>
+                  Liabilities {fmt(netWorth.total_liabilities ?? 0)}
+                </Text>
+              </View>
+            </Card>
           </TouchableOpacity>
         )}
       </View>
