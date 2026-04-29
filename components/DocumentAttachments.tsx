@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Text, TouchableOpacity, View,
+  ActivityIndicator,
+  Alert,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '@clerk/clerk-expo';
@@ -16,6 +20,11 @@ import {
   pollExtractJob,
   deleteDocument,
 } from '../lib/documents';
+import { useTheme } from '../lib/themeContext';
+import { RADIUS } from '../lib/tokens';
+import Card from './ui/Card';
+import Pill from './ui/Pill';
+import Button from './ui/Button';
 
 const MAX_POLLS = 12;       // 12 x 2s = 24s ceiling, matches web
 const POLL_INTERVAL = 2000;
@@ -60,6 +69,7 @@ function formatExtractedAmount(amount: number, currency: string): string {
 export default function DocumentAttachments({ rawTransactionId, transactionAmount, transactionDate }: Props) {
   const { getToken } = useAuth();
   const { hasAccess: canExtract } = useAiFeatureAccess();
+  const { colors } = useTheme();
 
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -198,37 +208,66 @@ export default function DocumentAttachments({ rawTransactionId, transactionAmoun
     ]);
   }
 
+  // Style helpers - reused inline across the file
+  const overlineStyle = {
+    fontSize: 11,
+    fontFamily: 'Manrope_600SemiBold' as const,
+    fontWeight: '600' as const,
+    color: colors.inkSecondary,
+    letterSpacing: 1,
+    textTransform: 'uppercase' as const,
+  };
+
+  const resetLinkStyle = {
+    fontSize: 11,
+    fontFamily: 'Manrope_600SemiBold' as const,
+    fontWeight: '600' as const,
+    color: colors.inkSecondary,
+  };
+
   function renderExtractCard(doc: DocumentRecord) {
     const state = extractStates[doc.id] ?? { status: 'idle' };
     if (state.status === 'idle' || state.status === 'extracting') return null;
 
     if (state.status === 'failed') {
       return (
-        <View style={{ marginTop: 8, padding: 10, borderRadius: 10, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#991B1B', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+        <Card accent="negative" padding="compact" style={{ marginTop: 8 }}>
+          <Text style={[overlineStyle, { color: colors.accentNegative, marginBottom: 4 }]}>
             Extract failed
           </Text>
-          <Text style={{ fontSize: 12, color: '#7F1D1D', marginBottom: 6 }}>{state.message}</Text>
-          <TouchableOpacity onPress={() => handleResetExtract(doc.id)}>
-            <Text style={{ fontSize: 11, color: '#991B1B', fontWeight: '600' }}>Reset</Text>
+          <Text style={{
+            fontSize: 12,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkPrimary,
+            marginBottom: 6,
+          }}>
+            {state.message}
+          </Text>
+          <TouchableOpacity onPress={() => handleResetExtract(doc.id)} activeOpacity={0.7}>
+            <Text style={resetLinkStyle}>Reset</Text>
           </TouchableOpacity>
-        </View>
+        </Card>
       );
     }
 
     if (state.status === 'low_confidence') {
       return (
-        <View style={{ marginTop: 8, padding: 10, borderRadius: 10, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A' }}>
-          <Text style={{ fontSize: 11, fontWeight: '700', color: '#92400E', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 4 }}>
+        <Card accent="warning" padding="compact" style={{ marginTop: 8 }}>
+          <Text style={[overlineStyle, { color: colors.accentWarning, marginBottom: 4 }]}>
             Low confidence
           </Text>
-          <Text style={{ fontSize: 12, color: '#78350F', marginBottom: 6 }}>
+          <Text style={{
+            fontSize: 12,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkPrimary,
+            marginBottom: 6,
+          }}>
             AI could not read this receipt clearly. Try a clearer photo if needed.
           </Text>
-          <TouchableOpacity onPress={() => handleResetExtract(doc.id)}>
-            <Text style={{ fontSize: 11, color: '#92400E', fontWeight: '600' }}>Reset</Text>
+          <TouchableOpacity onPress={() => handleResetExtract(doc.id)} activeOpacity={0.7}>
+            <Text style={resetLinkStyle}>Reset</Text>
           </TouchableOpacity>
-        </View>
+        </Card>
       );
     }
 
@@ -244,38 +283,68 @@ export default function DocumentAttachments({ rawTransactionId, transactionAmoun
     const hasComparison = typeof transactionAmount === 'number' || typeof transactionDate === 'string';
 
     return (
-      <View style={{ marginTop: 8, padding: 10, borderRadius: 10, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0' }}>
-        <Text style={{ fontSize: 11, fontWeight: '700', color: '#166534', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+      <Card accent="positive" padding="compact" style={{ marginTop: 8 }}>
+        <Text style={[overlineStyle, { color: colors.accentPositive, marginBottom: 6 }]}>
           AI Extracted
         </Text>
-        <Text style={{ fontSize: 13, fontWeight: '600', color: '#14532D', marginBottom: 4 }}>
+        <Text style={{
+          fontSize: 13,
+          fontFamily: 'Manrope_600SemiBold',
+          fontWeight: '600',
+          color: colors.inkPrimary,
+          marginBottom: 4,
+        }}>
           {r.vendor || 'Unknown vendor'}
         </Text>
-        <Text style={{ fontSize: 12, color: '#15803D', marginBottom: 4 }}>
+        <Text style={{
+          fontSize: 12,
+          fontFamily: 'Manrope_400Regular',
+          color: colors.inkSecondary,
+          marginBottom: 4,
+          fontVariant: ['tabular-nums'],
+        }}>
           {r.amount !== null ? formatExtractedAmount(r.amount, r.currency || '') : '-'}
           {r.date ? '  -  ' + formatExtractedDate(r.date) : ''}
         </Text>
 
         {hasComparison && !hasMismatch && (
-          <Text style={{ fontSize: 11, color: '#166534', marginTop: 4 }}>Matches transaction</Text>
+          <Text style={{
+            fontSize: 11,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.accentPositive,
+            marginTop: 4,
+          }}>
+            Matches transaction
+          </Text>
         )}
 
         {hasAmountMismatch && (
-          <Text style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>
+          <Text style={{
+            fontSize: 11,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.accentWarning,
+            marginTop: 4,
+            fontVariant: ['tabular-nums'],
+          }}>
             Amount differs from bank ({formatExtractedAmount(Math.abs(transactionAmount as number), r.currency || '')} bank, {formatExtractedAmount(r.amount as number, r.currency || '')} receipt)
           </Text>
         )}
 
         {hasDateMismatch && (
-          <Text style={{ fontSize: 11, color: '#92400E', marginTop: 4 }}>
+          <Text style={{
+            fontSize: 11,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.accentWarning,
+            marginTop: 4,
+          }}>
             Date differs from bank (bank: {formatExtractedDate((transactionDate as string).slice(0, 10))}, receipt: {formatExtractedDate(r.date as string)})
           </Text>
         )}
 
-        <TouchableOpacity onPress={() => handleResetExtract(doc.id)} style={{ marginTop: 8 }}>
-          <Text style={{ fontSize: 11, color: '#166534', fontWeight: '600' }}>Reset</Text>
+        <TouchableOpacity onPress={() => handleResetExtract(doc.id)} style={{ marginTop: 8 }} activeOpacity={0.7}>
+          <Text style={resetLinkStyle}>Reset</Text>
         </TouchableOpacity>
-      </View>
+      </Card>
     );
   }
 
@@ -284,73 +353,131 @@ export default function DocumentAttachments({ rawTransactionId, transactionAmoun
     const isImage = ['jpg', 'jpeg', 'png'].includes(doc.file_type.toLowerCase());
 
     return (
-      <View key={doc.id} style={{ marginBottom: 12, padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' }}>
+      <Card key={doc.id} padding="compact" style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: isImage ? '#DBEAFE' : '#FEE2E2', alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 16 }}>{isImage ? 'IMG' : 'PDF'}</Text>
-          </View>
+          <Pill
+            variant={isImage ? 'info' : 'negative'}
+            size="md"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: RADIUS.md,
+              paddingVertical: 0,
+              paddingHorizontal: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {isImage ? 'IMG' : 'PDF'}
+          </Pill>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#111827' }} numberOfLines={1}>
+            <Text style={{
+              fontSize: 13,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.inkPrimary,
+            }} numberOfLines={1}>
               {doc.file_name}
             </Text>
-            <Text style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>
+            <Text style={{
+              fontSize: 11,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+              marginTop: 2,
+              fontVariant: ['tabular-nums'],
+            }}>
               {(doc.file_size_bytes / 1024).toFixed(0)} KB
             </Text>
           </View>
-          <TouchableOpacity onPress={() => handleDelete(doc)} style={{ padding: 6 }}>
-            <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '600' }}>Remove</Text>
+          <TouchableOpacity onPress={() => handleDelete(doc)} style={{ padding: 6 }} activeOpacity={0.7}>
+            <Text style={{
+              fontSize: 14,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.accentNegative,
+            }}>
+              Remove
+            </Text>
           </TouchableOpacity>
         </View>
 
         {canExtract && state.status === 'idle' && (
-          <TouchableOpacity
-            onPress={() => handleExtract(doc)}
-            style={{ marginTop: 10, paddingVertical: 10, borderRadius: 10, backgroundColor: '#0F6E56', alignItems: 'center' }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#fff' }}>Extract with AI</Text>
-          </TouchableOpacity>
+          <View style={{ marginTop: 10 }}>
+            <Button
+              label="Extract with AI"
+              onPress={() => handleExtract(doc)}
+              variant="primary"
+              size="sm"
+              fullWidth
+            />
+          </View>
         )}
 
         {state.status === 'extracting' && (
-          <View style={{ marginTop: 10, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
-            <ActivityIndicator color="#0F6E56" size="small" />
-            <Text style={{ fontSize: 12, color: '#6B7280', fontWeight: '600' }}>Extracting...</Text>
+          <View style={{
+            marginTop: 10,
+            paddingVertical: 10,
+            borderRadius: RADIUS.md,
+            backgroundColor: colors.surfaceCardElevated,
+            borderWidth: 0.5,
+            borderColor: colors.borderSubtle,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+          }}>
+            <ActivityIndicator color={colors.brandPrimary} size="small" />
+            <Text style={{
+              fontSize: 12,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.inkSecondary,
+            }}>
+              Extracting...
+            </Text>
           </View>
         )}
 
         {renderExtractCard(doc)}
-      </View>
+      </Card>
     );
   }
 
   return (
-    <View style={{ marginHorizontal: 16, marginTop: 16, padding: 16, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+    <Card padding="default" style={{ marginHorizontal: 16, marginTop: 16 }}>
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+      }}>
+        <Text style={overlineStyle}>
           Receipts {documents.length > 0 ? '(' + documents.length + ')' : ''}
         </Text>
-        <TouchableOpacity
+        <Button
+          label="Add Receipt"
           onPress={handleCapture}
-          disabled={uploading}
-          style={{ paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, backgroundColor: uploading ? '#E5E7EB' : '#0F6E56' }}
-        >
-          {uploading ? (
-            <ActivityIndicator color="#0F6E56" size="small" />
-          ) : (
-            <Text style={{ fontSize: 12, fontWeight: '700', color: '#fff' }}>+ Add Receipt</Text>
-          )}
-        </TouchableOpacity>
+          variant="primary"
+          size="sm"
+          loading={uploading}
+        />
       </View>
 
       {loading ? (
-        <ActivityIndicator color="#0F6E56" style={{ paddingVertical: 16 }} />
+        <ActivityIndicator color={colors.brandPrimary} style={{ paddingVertical: 16 }} />
       ) : documents.length === 0 ? (
-        <Text style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', paddingVertical: 16 }}>
+        <Text style={{
+          fontSize: 12,
+          fontFamily: 'Manrope_400Regular',
+          color: colors.inkTertiary,
+          textAlign: 'center',
+          paddingVertical: 16,
+        }}>
           No receipts attached. Add one to track expenses.
         </Text>
       ) : (
         documents.map(renderDocument)
       )}
-    </View>
+    </Card>
   );
 }
