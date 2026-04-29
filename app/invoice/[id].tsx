@@ -1,35 +1,64 @@
 import { useAuth } from '@clerk/clerk-expo';
 import * as Linking from 'expo-linking';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
+import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Card from '../../components/ui/Card';
+import Pill from '../../components/ui/Pill';
+import Button from '../../components/ui/Button';
 
-const API_BASE = 'https://ayende-bookkeeping-mvp-production.up.railway.app';
 const WEB_APP = 'https://gettempo.ca';
 
-const STATUS_COLOR: Record<string, string> = {
-  draft: '#9CA3AF',
-  sent: '#2563EB',
-  overdue: '#DC2626',
-  paid: '#0F6E56',
-  partial: '#D97706',
-  void: '#6B7280',
+type PillVariant = 'positive' | 'negative' | 'warning' | 'info' | 'neutral' | 'brand';
+
+const STATUS_VARIANT: Record<string, PillVariant> = {
+  draft: 'neutral',
+  sent: 'info',
+  overdue: 'negative',
+  paid: 'positive',
+  partial: 'warning',
+  void: 'neutral',
 };
 
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 function Field({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
   return (
-    <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' }}>
-      <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 2 }}>{label}</Text>
-      <Text style={{ fontSize: 15, color: '#111827', fontWeight: '500' }}>{value}</Text>
+    <View style={{
+      paddingVertical: 12,
+      borderBottomWidth: 0.5,
+      borderBottomColor: colors.borderSubtle,
+    }}>
+      <Text style={{
+        fontSize: 12,
+        fontFamily: 'Manrope_600SemiBold',
+        fontWeight: '600',
+        color: colors.inkSecondary,
+        marginBottom: 2,
+      }}>
+        {label}
+      </Text>
+      <Text style={{
+        fontSize: 15,
+        fontFamily: 'Manrope_600SemiBold',
+        fontWeight: '600',
+        color: colors.inkPrimary,
+      }}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -48,8 +77,8 @@ function parseDataParam(raw: unknown): any | null {
 
 export default function InvoiceDetailScreen() {
   const params = useLocalSearchParams();
-  const router = useRouter();
   const { getToken } = useAuth();
+  const { colors } = useTheme();
 
   // Fast path: invoices-list passes the full object as a JSON-stringified
   // `data` param. Initialize synchronously so there's no loading flash.
@@ -103,8 +132,13 @@ export default function InvoiceDetailScreen() {
   // Loading state -- only shown when we arrived with just an id.
   if (fetchStatus === 'loading') {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
-        <ActivityIndicator size="large" color="#0F6E56" />
+      <View style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceApp,
+      }}>
+        <ActivityIndicator size="large" color={colors.brandPrimary} />
       </View>
     );
   }
@@ -112,14 +146,24 @@ export default function InvoiceDetailScreen() {
   // Not-found state -- fetch errored or no id/data provided.
   if (fetchStatus === 'notfound' || !invoice) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F9FAFB' }}>
-        <Text style={{ color: '#9CA3AF' }}>Invoice not found</Text>
+      <View style={{
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceApp,
+      }}>
+        <Text style={{
+          color: colors.inkSecondary,
+          fontFamily: 'Manrope_400Regular',
+        }}>
+          Invoice not found
+        </Text>
       </View>
     );
   }
 
   const total = parseFloat(invoice.total ?? invoice.subtotal ?? 0);
-  const statusColor = STATUS_COLOR[localStatus] ?? '#9CA3AF';
+  const statusVariant: PillVariant = STATUS_VARIANT[localStatus] ?? 'neutral';
 
   async function handleSend() {
     Alert.alert('Send Invoice', `Mark invoice ${invoice.invoice_number} as sent?`, [
@@ -174,97 +218,181 @@ export default function InvoiceDetailScreen() {
   }
 
   const lineItems = invoice.line_items ?? [];
+  const isPaid = localStatus === 'paid';
+  const showPaymentAction = localStatus === 'sent' || localStatus === 'overdue' || localStatus === 'partial';
+  const canVoid = localStatus === 'draft' || localStatus === 'sent';
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: '#F9FAFB' }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.surfaceApp }}>
       {/* Header */}
-      <View style={{ backgroundColor: '#fff', margin: 16, borderRadius: 16, padding: 20, elevation: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-          <Text style={{ fontSize: 18, fontWeight: '700', color: '#111827' }}>
+      <Card padding="prominent" style={{ margin: 16 }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          marginBottom: 8,
+        }}>
+          <Text style={{
+            fontSize: 18,
+            lineHeight: 26,
+            fontFamily: 'Manrope_600SemiBold',
+            fontWeight: '600',
+            color: colors.inkPrimary,
+          }}>
             {invoice.invoice_number ?? 'Invoice'}
           </Text>
-          <View style={{ backgroundColor: statusColor + '18', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 13, color: statusColor, fontWeight: '600', textTransform: 'capitalize' }}>{localStatus}</Text>
-          </View>
+          <Pill variant={statusVariant} size="md">
+            {capitalize(localStatus)}
+          </Pill>
         </View>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: localStatus === 'paid' ? '#0F6E56' : '#111827' }}>
+        <Text style={{
+          fontSize: 28,
+          lineHeight: 34,
+          fontFamily: 'Manrope_700Bold',
+          fontWeight: '700',
+          color: isPaid ? colors.accentPositive : colors.inkPrimary,
+          fontVariant: ['tabular-nums'],
+        }}>
           {total.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
         </Text>
-      </View>
+      </Card>
 
-      {/* Details */}
-      <View style={{ backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, paddingHorizontal: 16, elevation: 1 }}>
+      {/* Details - inline View not <Card> because the divider-list pattern wants no top padding */}
+      <View style={{
+        backgroundColor: colors.surfaceCard,
+        marginHorizontal: 16,
+        borderRadius: RADIUS.lg,
+        paddingHorizontal: 16,
+        borderWidth: 0.5,
+        borderColor: colors.borderSubtle,
+      }}>
         <Field label="Client" value={invoice.client_name ?? ''} />
         {invoice.client_email ? <Field label="Email" value={invoice.client_email} /> : null}
         {invoice.issue_date ? (
-          <Field label="Issue Date" value={new Date(invoice.issue_date).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })} />
+          <Field
+            label="Issue Date"
+            value={new Date(invoice.issue_date).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
+          />
         ) : null}
         {invoice.due_date ? (
-          <Field label="Due Date" value={new Date(invoice.due_date).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })} />
+          <Field
+            label="Due Date"
+            value={new Date(invoice.due_date).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })}
+          />
         ) : null}
         {invoice.notes ? <Field label="Notes" value={invoice.notes} /> : null}
       </View>
 
       {/* Line items */}
       {lineItems.length > 0 && (
-        <View style={{ backgroundColor: '#fff', marginHorizontal: 16, marginTop: 12, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: '#374151', marginBottom: 12 }}>Line Items</Text>
+        <Card padding="default" style={{ marginHorizontal: 16, marginTop: 12 }}>
+          <Text style={{
+            fontSize: 14,
+            fontFamily: 'Manrope_700Bold',
+            fontWeight: '700',
+            color: colors.inkPrimary,
+            marginBottom: 12,
+          }}>
+            Line Items
+          </Text>
           {lineItems.map((item: any, idx: number) => (
-            <View key={idx} style={{
-              flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
-              paddingVertical: 8,
-              borderBottomWidth: idx < lineItems.length - 1 ? 1 : 0,
-              borderBottomColor: '#F3F4F6',
-            }}>
+            <View
+              key={idx}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'flex-start',
+                paddingVertical: 8,
+                borderBottomWidth: idx < lineItems.length - 1 ? 0.5 : 0,
+                borderBottomColor: colors.borderSubtle,
+              }}
+            >
               <View style={{ flex: 1, marginRight: 12 }}>
-                <Text style={{ fontSize: 14, color: '#111827', fontWeight: '500' }}>{item.description}</Text>
-                <Text style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+                <Text style={{
+                  fontSize: 14,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  {item.description}
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                  marginTop: 2,
+                  fontVariant: ['tabular-nums'],
+                }}>
                   {item.quantity} x {parseFloat(item.unit_price).toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
                 </Text>
               </View>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827' }}>
+              <Text style={{
+                fontSize: 14,
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+                color: colors.inkPrimary,
+                fontVariant: ['tabular-nums'],
+              }}>
                 {(item.quantity * item.unit_price).toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
               </Text>
             </View>
           ))}
-        </View>
+        </Card>
       )}
 
       {/* Actions */}
       <View style={{ marginHorizontal: 16, marginTop: 16, gap: 10 }}>
-        {loading && <ActivityIndicator color="#0F6E56" style={{ padding: 8 }} />}
+        {loading && <ActivityIndicator color={colors.brandPrimary} style={{ padding: 8 }} />}
 
         {localStatus === 'draft' && !loading && (
-          <TouchableOpacity
+          <Button
+            label="Mark as Sent"
             onPress={handleSend}
-            style={{ backgroundColor: '#0F6E56', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Mark as Sent</Text>
-          </TouchableOpacity>
+            variant="primary"
+            size="lg"
+            fullWidth
+          />
         )}
 
-        {(localStatus === 'sent' || localStatus === 'overdue' || localStatus === 'partial') && !loading && (
-          <TouchableOpacity
+        {showPaymentAction && !loading && (
+          <Button
+            label="Record Payment"
             onPress={handleRecordPayment}
-            style={{ backgroundColor: '#0F6E56', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Record Payment</Text>
-          </TouchableOpacity>
+            variant="primary"
+            size="lg"
+            fullWidth
+          />
         )}
 
-        <TouchableOpacity
+        <Button
+          label="View / Download PDF"
           onPress={handleDownloadPdf}
-          style={{ borderRadius: 14, paddingVertical: 13, alignItems: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', backgroundColor: '#fff' }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>View / Download PDF</Text>
-        </TouchableOpacity>
+          variant="secondary"
+          size="lg"
+          fullWidth
+        />
 
-        {(localStatus === 'draft' || localStatus === 'sent') && !loading && (
+        {canVoid && !loading && (
           <TouchableOpacity
             onPress={handleVoid}
-            style={{ borderRadius: 14, paddingVertical: 13, alignItems: 'center', borderWidth: 1.5, borderColor: '#FECACA' }}
+            activeOpacity={0.7}
+            style={{
+              borderRadius: RADIUS.md,
+              paddingVertical: 13,
+              alignItems: 'center',
+              borderWidth: 0.5,
+              borderColor: colors.accentNegative,
+              backgroundColor: 'transparent',
+            }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: '#DC2626' }}>Void Invoice</Text>
+            <Text style={{
+              fontSize: 14,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.accentNegative,
+            }}>
+              Void Invoice
+            </Text>
           </TouchableOpacity>
         )}
       </View>
