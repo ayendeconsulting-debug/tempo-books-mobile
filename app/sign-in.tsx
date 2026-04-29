@@ -3,7 +3,6 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -13,15 +12,45 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import Button from '../components/ui/Button';
+import { useTheme } from '../lib/themeContext';
+import { RADIUS } from '../lib/tokens';
 
 WebBrowser.maybeCompleteAuthSession();
 
 type Step = 'credentials' | 'second_factor';
 type SecondFactorStrategy = 'email_code' | 'totp' | 'backup_code';
 
+// Google brand mark - colors are Google-locked, not theme tokens.
+// Same justified-hex category as Button primary's #FFFFFF.
+function GoogleIcon({ size = 18 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <Path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <Path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <Path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </Svg>
+  );
+}
+
 export default function SignInScreen() {
   const { startSSOFlow } = useSSO();
   const { signIn, setActive: setActiveSession, isLoaded } = useSignIn();
+  const { colors } = useTheme();
 
   const [step, setStep] = useState<Step>('credentials');
 
@@ -42,6 +71,29 @@ export default function SignInScreen() {
     path: 'sign-in',
   });
 
+  // Local style helpers - inlined (Path B per migration proposal). Reused 3x in
+  // this file. No new Input primitive yet; sign-in is one of only two TextInput
+  // sites in the codebase.
+  const inputStyle = {
+    borderWidth: 0.5,
+    borderColor: colors.borderDefault,
+    borderRadius: RADIUS.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    fontFamily: 'Manrope_400Regular' as const,
+    color: colors.inkPrimary,
+    backgroundColor: colors.surfaceCard,
+  };
+
+  const labelStyle = {
+    fontSize: 13,
+    fontFamily: 'Manrope_600SemiBold' as const,
+    fontWeight: '600' as const,
+    color: colors.inkPrimary,
+    marginBottom: 6,
+  };
+
   function resetToCredentials() {
     setStep('credentials');
     setCode('');
@@ -61,9 +113,6 @@ export default function SignInScreen() {
     // Nov 2025) returns email_code in supportedSecondFactors for new-device
     // sign-ins when MFA is not enrolled. Send the email code immediately so
     // it lands in the inbox before the user reaches the verification screen.
-    // If real MFA is enrolled (Pro plan, future), fall back to TOTP /
-    // backup_code -- those don't need a prepare step because the code is
-    // already on the user's device.
     if (emailFactor && emailFactor.strategy === 'email_code') {
       setSecondFactorStrategy('email_code');
       await signIn.prepareSecondFactor({
@@ -95,8 +144,6 @@ export default function SignInScreen() {
         password,
       });
 
-      // Fallback: if create() returns 'needs_first_factor' (some Clerk configs
-      // require an explicit second call), complete via attemptFirstFactor.
       if (attempt.status === 'needs_first_factor') {
         attempt = await signIn.attemptFirstFactor({
           strategy: 'password',
@@ -207,101 +254,120 @@ export default function SignInScreen() {
     return (
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1 bg-white"
+        style={{ flex: 1, backgroundColor: colors.surfaceApp }}
       >
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="mb-8 items-center">
+          <View style={{ marginBottom: 32, alignItems: 'center' }}>
             <Image
               source={require('../assets/tempo-logo-bar.png')}
               style={{ width: 72, height: 72, borderRadius: 16 }}
               resizeMode="contain"
             />
-            <Text className="text-2xl font-bold text-gray-900 mt-4">{screenTitle}</Text>
-            <Text className="text-gray-500 mt-1 text-center px-4">{codeHelp}</Text>
+            <Text style={{
+              fontSize: 22,
+              lineHeight: 28,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: colors.inkPrimary,
+              marginTop: 16,
+            }}>
+              {screenTitle}
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              lineHeight: 20,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+              marginTop: 4,
+              textAlign: 'center',
+              paddingHorizontal: 16,
+            }}>
+              {codeHelp}
+            </Text>
           </View>
 
           <View style={{ marginBottom: 16 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>{codeLabel}</Text>
+            <Text style={labelStyle}>{codeLabel}</Text>
             <TextInput
               value={code}
               onChangeText={setCode}
               placeholder={codePlaceholder}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.inkTertiary}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType={codeKeyboardType}
               textContentType="oneTimeCode"
               editable={!anyLoading}
               autoFocus
-              style={{
-                borderWidth: 1.5,
-                borderColor: '#E5E7EB',
-                borderRadius: 12,
-                paddingVertical: 12,
-                paddingHorizontal: 14,
-                fontSize: 16,
-                color: '#111827',
-                backgroundColor: '#FFFFFF',
-                letterSpacing: codeLetterSpacing,
-              }}
+              style={[inputStyle, { letterSpacing: codeLetterSpacing }]}
             />
           </View>
 
-          <TouchableOpacity
+          <Button
+            label="Verify"
             onPress={handleVerifySecondFactor}
-            disabled={anyLoading}
-            style={{
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: '#0F6E56',
-              borderRadius: 14,
-              paddingVertical: 14,
-              paddingHorizontal: 24,
-              marginBottom: 16,
-              opacity: anyLoading ? 0.7 : 1,
-            }}
-          >
-            {loadingMfa ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Verify</Text>
-            )}
-          </TouchableOpacity>
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={loadingMfa}
+            disabled={anyLoading && !loadingMfa}
+            style={{ marginBottom: 16 }}
+          />
 
           {hasBackupCode && (
             <TouchableOpacity
               onPress={() => setShowStrategyPicker(!showStrategyPicker)}
               disabled={anyLoading}
               style={{ alignItems: 'center', paddingVertical: 8, marginBottom: 8 }}
+              activeOpacity={0.7}
             >
-              <Text style={{ color: '#0F6E56', fontSize: 14, fontWeight: '500' }}>
+              <Text style={{
+                color: colors.brandPrimary,
+                fontSize: 14,
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+              }}>
                 Use a different method
               </Text>
             </TouchableOpacity>
           )}
 
           {showStrategyPicker && (
-            <View style={{ marginBottom: 16, paddingVertical: 8 }}>
+            <View style={{ marginBottom: 16, paddingVertical: 8, gap: 8 }}>
               <TouchableOpacity
                 onPress={() => {
                   setSecondFactorStrategy('totp');
                   setCode('');
                   setShowStrategyPicker(false);
                 }}
+                activeOpacity={0.7}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  borderWidth: 1,
-                  borderColor: secondFactorStrategy === 'totp' ? '#0F6E56' : '#E5E7EB',
-                  borderRadius: 10,
-                  marginBottom: 8,
+                  borderWidth: 0.5,
+                  borderColor: secondFactorStrategy === 'totp' ? colors.brandPrimary : colors.borderDefault,
+                  borderRadius: RADIUS.md,
+                  backgroundColor: colors.surfaceCard,
                 }}
               >
-                <Text style={{ fontWeight: '600', color: '#111827' }}>Authenticator app</Text>
-                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>6-digit code from your app</Text>
+                <Text style={{
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  Authenticator app
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                  marginTop: 2,
+                }}>
+                  6-digit code from your app
+                </Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
@@ -309,16 +375,31 @@ export default function SignInScreen() {
                   setCode('');
                   setShowStrategyPicker(false);
                 }}
+                activeOpacity={0.7}
                 style={{
                   paddingVertical: 12,
                   paddingHorizontal: 16,
-                  borderWidth: 1,
-                  borderColor: secondFactorStrategy === 'backup_code' ? '#0F6E56' : '#E5E7EB',
-                  borderRadius: 10,
+                  borderWidth: 0.5,
+                  borderColor: secondFactorStrategy === 'backup_code' ? colors.brandPrimary : colors.borderDefault,
+                  borderRadius: RADIUS.md,
+                  backgroundColor: colors.surfaceCard,
                 }}
               >
-                <Text style={{ fontWeight: '600', color: '#111827' }}>Backup code</Text>
-                <Text style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Use one of your saved recovery codes</Text>
+                <Text style={{
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  Backup code
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                  marginTop: 2,
+                }}>
+                  Use one of your saved recovery codes
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -327,12 +408,27 @@ export default function SignInScreen() {
             onPress={resetToCredentials}
             disabled={anyLoading}
             style={{ alignItems: 'center', paddingVertical: 12, marginTop: 8 }}
+            activeOpacity={0.7}
           >
-            <Text style={{ color: '#6B7280', fontSize: 14 }}>Cancel</Text>
+            <Text style={{
+              color: colors.inkSecondary,
+              fontSize: 14,
+              fontFamily: 'Manrope_400Regular',
+            }}>
+              Cancel
+            </Text>
           </TouchableOpacity>
 
           {error ? (
-            <Text className="text-red-600 text-sm text-center mt-4">{error}</Text>
+            <Text style={{
+              color: colors.accentNegative,
+              fontSize: 14,
+              fontFamily: 'Manrope_400Regular',
+              textAlign: 'center',
+              marginTop: 16,
+            }}>
+              {error}
+            </Text>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
@@ -343,138 +439,125 @@ export default function SignInScreen() {
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      className="flex-1 bg-white"
+      style={{ flex: 1, backgroundColor: colors.surfaceApp }}
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="mb-8 items-center">
+        <View style={{ marginBottom: 32, alignItems: 'center' }}>
           <Image
             source={require('../assets/tempo-logo-bar.png')}
             style={{ width: 72, height: 72, borderRadius: 16 }}
             resizeMode="contain"
           />
-          <Text className="text-2xl font-bold text-gray-900 mt-4">Tempo Books</Text>
-          <Text className="text-gray-500 mt-1">Sign in to your account</Text>
+          <Text style={{
+            fontSize: 22,
+            lineHeight: 28,
+            fontFamily: 'Manrope_700Bold',
+            fontWeight: '700',
+            color: colors.inkPrimary,
+            marginTop: 16,
+          }}>
+            Tempo Books
+          </Text>
+          <Text style={{
+            fontSize: 14,
+            lineHeight: 20,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkSecondary,
+            marginTop: 4,
+          }}>
+            Sign in to your account
+          </Text>
         </View>
 
         <View style={{ marginBottom: 12 }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Email</Text>
+          <Text style={labelStyle}>Email</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkTertiary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
             textContentType="emailAddress"
             editable={!anyLoading}
-            style={{
-              borderWidth: 1.5,
-              borderColor: '#E5E7EB',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-              fontSize: 16,
-              color: '#111827',
-              backgroundColor: '#FFFFFF',
-            }}
+            style={inputStyle}
           />
         </View>
 
         <View style={{ marginBottom: 16 }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Password</Text>
+          <Text style={labelStyle}>Password</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Your password"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkTertiary}
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
             textContentType="password"
             editable={!anyLoading}
-            style={{
-              borderWidth: 1.5,
-              borderColor: '#E5E7EB',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 14,
-              fontSize: 16,
-              color: '#111827',
-              backgroundColor: '#FFFFFF',
-            }}
+            style={inputStyle}
           />
         </View>
 
-        <TouchableOpacity
+        <Button
+          label="Sign in"
           onPress={handleEmailSignIn}
-          disabled={anyLoading}
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#0F6E56',
-            borderRadius: 14,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            marginBottom: 20,
-            opacity: anyLoading ? 0.7 : 1,
-          }}
-        >
-          {loadingEmail ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF' }}>Sign in</Text>
-          )}
-        </TouchableOpacity>
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={loadingEmail}
+          disabled={anyLoading && !loadingEmail}
+          style={{ marginBottom: 20 }}
+        />
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 20 }}>
-          <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
-          <Text style={{ marginHorizontal: 12, color: '#9CA3AF', fontSize: 12 }}>or</Text>
-          <View style={{ flex: 1, height: 1, backgroundColor: '#E5E7EB' }} />
+          <View style={{ flex: 1, height: 0.5, backgroundColor: colors.borderSubtle }} />
+          <Text style={{
+            marginHorizontal: 12,
+            color: colors.inkSecondary,
+            fontSize: 12,
+            fontFamily: 'Manrope_400Regular',
+          }}>
+            or
+          </Text>
+          <View style={{ flex: 1, height: 0.5, backgroundColor: colors.borderSubtle }} />
         </View>
 
-        <TouchableOpacity
+        <Button
+          label="Continue with Google"
           onPress={handleGoogleSignIn}
-          disabled={anyLoading}
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: '#FFFFFF',
-            borderWidth: 1.5,
-            borderColor: '#E5E7EB',
-            borderRadius: 14,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-            shadowColor: '#000',
-            shadowOpacity: 0.05,
-            shadowRadius: 4,
-            elevation: 2,
-            opacity: anyLoading ? 0.7 : 1,
-          }}
-        >
-          {loadingGoogle ? (
-            <ActivityIndicator color="#0F6E56" />
-          ) : (
-            <>
-              <View style={{ marginRight: 12 }}>
-                <Text style={{ fontSize: 18 }}>G</Text>
-              </View>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: '#111827' }}>
-                Continue with Google
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+          variant="secondary"
+          size="lg"
+          fullWidth
+          loading={loadingGoogle}
+          disabled={anyLoading && !loadingGoogle}
+          leftIcon={<GoogleIcon size={18} />}
+        />
 
         {error ? (
-          <Text className="text-red-600 text-sm text-center mt-4">{error}</Text>
+          <Text style={{
+            color: colors.accentNegative,
+            fontSize: 14,
+            fontFamily: 'Manrope_400Regular',
+            textAlign: 'center',
+            marginTop: 16,
+          }}>
+            {error}
+          </Text>
         ) : null}
 
-        <Text className="text-center text-gray-400 text-xs mt-6">
+        <Text style={{
+          textAlign: 'center',
+          color: colors.inkTertiary,
+          fontSize: 12,
+          fontFamily: 'Manrope_400Regular',
+          marginTop: 24,
+        }}>
           Manage your account at gettempo.ca
         </Text>
       </ScrollView>
