@@ -12,6 +12,9 @@ import {
 } from 'react-native';
 import { apiClient, setAuthToken } from '../lib/api';
 import { useBusiness } from '../lib/businessContext';
+import { useTheme } from '../lib/themeContext';
+import { RADIUS } from '../lib/tokens';
+import Button from './ui/Button';
 
 interface Props {
   visible: boolean;
@@ -24,6 +27,8 @@ interface Props {
 export default function ClassifySheet({ visible, transactionId, sourceAccountId, onClose, onSuccess }: Props) {
   const { activeBusiness } = useBusiness();
   const { getToken } = useAuth();
+  const { colors } = useTheme();
+
   const [search, setSearch] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<any>(null);
   const [selectedTaxCode, setSelectedTaxCode] = useState<any>(null);
@@ -36,7 +41,7 @@ export default function ClassifySheet({ visible, transactionId, sourceAccountId,
     queryFn: async () => {
       const token = await getToken();
       setAuthToken(token);
-      // API reads businessId from JWT — no query param needed
+      // API reads businessId from JWT - no query param needed
       const res = await apiClient.get('/accounts');
       return Array.isArray(res.data) ? res.data : res.data?.data ?? [];
     },
@@ -102,13 +107,33 @@ export default function ClassifySheet({ visible, transactionId, sourceAccountId,
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={resetAndClose}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-        <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 32, maxHeight: '85%' }}>
-          {/* Handle */}
+        <View style={{
+          backgroundColor: colors.surfaceCardElevated,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          paddingBottom: 32,
+          maxHeight: '85%',
+        }}>
+          {/* Drag handle */}
           <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 8 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB' }} />
+            <View style={{
+              width: 40,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: colors.borderDefault,
+            }} />
           </View>
 
-          <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', paddingHorizontal: 20, paddingBottom: 12 }}>
+          {/* Title */}
+          <Text style={{
+            fontSize: 18,
+            lineHeight: 26,
+            fontFamily: 'Manrope_600SemiBold',
+            fontWeight: '600',
+            color: colors.inkPrimary,
+            paddingHorizontal: 20,
+            paddingBottom: 12,
+          }}>
             Classify Transaction
           </Text>
 
@@ -118,111 +143,197 @@ export default function ClassifySheet({ visible, transactionId, sourceAccountId,
               value={search}
               onChangeText={setSearch}
               placeholder="Search accounts..."
-              placeholderTextColor="#9CA3AF"
-              style={{ backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14 }}
+              placeholderTextColor={colors.inkTertiary}
+              style={{
+                backgroundColor: colors.surfaceCard,
+                borderWidth: 0.5,
+                borderColor: colors.borderDefault,
+                borderRadius: RADIUS.md,
+                paddingHorizontal: 14,
+                paddingVertical: 9,
+                fontSize: 14,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.inkPrimary,
+              }}
             />
           </View>
 
+          {/* Account list */}
           {loadingAccounts ? (
-            <ActivityIndicator color="#0F6E56" style={{ padding: 24 }} />
+            <ActivityIndicator color={colors.brandPrimary} style={{ padding: 24 }} />
           ) : (
             <FlatList
               data={filteredAccounts}
               keyExtractor={(item) => item.id}
               style={{ maxHeight: 220 }}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  onPress={() => setSelectedAccount(item)}
-                  style={{
-                    paddingHorizontal: 20,
-                    paddingVertical: 12,
-                    borderBottomWidth: 1,
-                    borderBottomColor: '#F3F4F6',
-                    backgroundColor: selectedAccount?.id === item.id ? '#EDF7F2' : '#fff',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <View>
-                    <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: '#9CA3AF' }}>{item.account_code} · {item.type}</Text>
-                  </View>
-                  {selectedAccount?.id === item.id && (
-                    <Text style={{ color: '#0F6E56', fontSize: 16, fontWeight: '700' }}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              )}
+              renderItem={({ item }) => {
+                const isSelected = selectedAccount?.id === item.id;
+                return (
+                  <TouchableOpacity
+                    onPress={() => setSelectedAccount(item)}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingHorizontal: 20,
+                      paddingVertical: 12,
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: colors.borderSubtle,
+                      backgroundColor: isSelected ? colors.primaryLight : 'transparent',
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <View>
+                      <Text style={{
+                        fontSize: 14,
+                        fontFamily: 'Manrope_600SemiBold',
+                        fontWeight: '600',
+                        color: colors.inkPrimary,
+                      }}>
+                        {item.name}
+                      </Text>
+                      <Text style={{
+                        fontSize: 12,
+                        fontFamily: 'Manrope_400Regular',
+                        color: colors.inkSecondary,
+                        marginTop: 2,
+                      }}>
+                        {item.account_code} · {item.type}
+                      </Text>
+                    </View>
+                    {isSelected && (
+                      <Text style={{
+                        color: colors.brandPrimary,
+                        fontSize: 16,
+                        fontFamily: 'Manrope_700Bold',
+                        fontWeight: '700',
+                      }}>
+                        ✓
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              }}
             />
           )}
 
           {/* Tax code picker */}
           {(taxCodes ?? []).length > 0 && (
             <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 8 }}>Tax Code (optional)</Text>
+              <Text style={{
+                fontSize: 13,
+                lineHeight: 18,
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+                color: colors.inkPrimary,
+                marginBottom: 8,
+              }}>
+                Tax Code (optional)
+              </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 <TouchableOpacity
                   onPress={() => setSelectedTaxCode(null)}
+                  activeOpacity={0.7}
                   style={{
-                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-                    borderWidth: 1,
-                    borderColor: !selectedTaxCode ? '#0F6E56' : '#E5E7EB',
-                    backgroundColor: !selectedTaxCode ? '#EDF7F2' : '#fff',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: RADIUS.pill,
+                    borderWidth: 0.5,
+                    borderColor: !selectedTaxCode ? colors.brandPrimary : colors.borderDefault,
+                    backgroundColor: !selectedTaxCode ? colors.primaryLight : 'transparent',
                   }}
                 >
-                  <Text style={{ fontSize: 13, color: !selectedTaxCode ? '#0F6E56' : '#6B7280' }}>None</Text>
+                  <Text style={{
+                    fontSize: 13,
+                    fontFamily: 'Manrope_600SemiBold',
+                    fontWeight: '600',
+                    color: !selectedTaxCode ? colors.brandPrimary : colors.inkSecondary,
+                  }}>
+                    None
+                  </Text>
                 </TouchableOpacity>
-                {(taxCodes ?? []).map((tc: any) => (
-                  <TouchableOpacity
-                    key={tc.id}
-                    onPress={() => setSelectedTaxCode(tc)}
-                    style={{
-                      paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: selectedTaxCode?.id === tc.id ? '#0F6E56' : '#E5E7EB',
-                      backgroundColor: selectedTaxCode?.id === tc.id ? '#EDF7F2' : '#fff',
-                    }}
-                  >
-                    <Text style={{ fontSize: 13, color: selectedTaxCode?.id === tc.id ? '#0F6E56' : '#6B7280' }}>
-                      {tc.code} ({tc.rate}%)
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {(taxCodes ?? []).map((tc: any) => {
+                  const isSel = selectedTaxCode?.id === tc.id;
+                  return (
+                    <TouchableOpacity
+                      key={tc.id}
+                      onPress={() => setSelectedTaxCode(tc)}
+                      activeOpacity={0.7}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                        borderRadius: RADIUS.pill,
+                        borderWidth: 0.5,
+                        borderColor: isSel ? colors.brandPrimary : colors.borderDefault,
+                        backgroundColor: isSel ? colors.primaryLight : 'transparent',
+                      }}
+                    >
+                      <Text style={{
+                        fontSize: 13,
+                        fontFamily: 'Manrope_600SemiBold',
+                        fontWeight: '600',
+                        color: isSel ? colors.brandPrimary : colors.inkSecondary,
+                        fontVariant: ['tabular-nums'],
+                      }}>
+                        {tc.code} ({tc.rate}%)
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           )}
 
+          {/* Error */}
           {error ? (
-            <Text style={{ color: '#DC2626', fontSize: 13, textAlign: 'center', paddingHorizontal: 20, paddingTop: 8 }}>{error}</Text>
+            <Text style={{
+              color: colors.accentNegative,
+              fontSize: 13,
+              fontFamily: 'Manrope_400Regular',
+              textAlign: 'center',
+              paddingHorizontal: 20,
+              paddingTop: 8,
+            }}>
+              {error}
+            </Text>
           ) : null}
 
           {/* Actions */}
           <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingTop: 16 }}>
-            <TouchableOpacity
-              onPress={resetAndClose}
-              style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center' }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: '#6B7280' }}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleClassify(false)}
-              disabled={!selectedAccount || saving}
-              style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: selectedAccount ? '#0F6E56' : '#E5E7EB', alignItems: 'center' }}
-            >
-              {saving ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ fontSize: 15, fontWeight: '600', color: '#fff' }}>Classify</Text>
-              )}
-            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Cancel"
+                onPress={resetAndClose}
+                variant="secondary"
+                size="md"
+                fullWidth
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Classify"
+                onPress={() => handleClassify(false)}
+                variant="primary"
+                size="md"
+                fullWidth
+                loading={saving}
+                disabled={!selectedAccount}
+              />
+            </View>
           </View>
 
           {canPost && (
-            <TouchableOpacity
-              onPress={() => handleClassify(true)}
-              disabled={!selectedAccount || saving}
-              style={{ marginHorizontal: 16, marginTop: 8, paddingVertical: 14, borderRadius: 14, backgroundColor: selectedAccount ? '#EDF7F2' : '#F9FAFB', alignItems: 'center' }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: '600', color: selectedAccount ? '#0F6E56' : '#9CA3AF' }}>Classify & Post</Text>
-            </TouchableOpacity>
+            <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+              <Button
+                label="Classify & Post"
+                onPress={() => handleClassify(true)}
+                variant="tertiary"
+                size="md"
+                fullWidth
+                disabled={!selectedAccount}
+                loading={saving}
+              />
+            </View>
           )}
         </View>
       </View>
