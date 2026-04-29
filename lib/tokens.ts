@@ -1,5 +1,6 @@
 // lib/tokens.ts
 // Phase 32c.2 - Direction B (Editorial fintech) design tokens for Tempo Books mobile.
+// Phase 32c.2.1 - Light-mode surfaceApp/surfaceCard inverted: white canvas, warm cards.
 // Pure constants module. Consumed by themeContext.tsx and primitive components in 32c.3+.
 
 import type { TextStyle } from 'react-native';
@@ -51,8 +52,8 @@ export const LIGHT_TOKENS: ThemeColors = {
   brandPrimary: '#0F6E56',
   brandPrimaryDeep: '#0A4F3E',
   brandPrimaryHighlight: '#7FE8C7',
-  surfaceApp: '#F5F1EA',
-  surfaceCard: '#FFFFFF',
+  surfaceApp: '#FFFFFF',
+  surfaceCard: '#F5F1EA',
   surfaceCardElevated: '#FFFFFF',
   inkPrimary: '#1A2520',
   inkSecondary: '#6B7570',
@@ -64,8 +65,8 @@ export const LIGHT_TOKENS: ThemeColors = {
   borderSubtle: 'rgba(0,0,0,0.08)',
   borderDefault: 'rgba(0,0,0,0.16)',
 
-  background: '#F5F1EA',
-  card: '#FFFFFF',
+  background: '#FFFFFF',
+  card: '#F5F1EA',
   cardBorder: 'rgba(0,0,0,0.08)',
   text: '#1A2520',
   subtext: '#6B7570',
