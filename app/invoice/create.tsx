@@ -2,7 +2,6 @@ import { useAuth } from '@clerk/clerk-expo';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -12,8 +11,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
+import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Card from '../../components/ui/Card';
+import Button from '../../components/ui/Button';
 
 function today() {
   return new Date().toISOString().split('T')[0];
@@ -41,21 +43,35 @@ function InputField({
   keyboardType?: any;
   required?: boolean;
 }) {
+  const { colors } = useTheme();
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>
+      <Text style={{
+        fontSize: 13,
+        fontFamily: 'Manrope_600SemiBold',
+        fontWeight: '600',
+        color: colors.inkPrimary,
+        marginBottom: 6,
+      }}>
         {label}{required ? ' *' : ''}
       </Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder ?? ''}
-        placeholderTextColor="#9CA3AF"
+        placeholderTextColor={colors.inkTertiary}
         keyboardType={keyboardType}
         autoCapitalize="none"
         style={{
-          backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
-          borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, color: '#111827',
+          backgroundColor: colors.inputBg,
+          borderWidth: 0.5,
+          borderColor: colors.borderDefault,
+          borderRadius: RADIUS.md,
+          paddingHorizontal: 14,
+          paddingVertical: 11,
+          fontSize: 14,
+          fontFamily: 'Manrope_400Regular',
+          color: colors.inkPrimary,
         }}
       />
     </View>
@@ -65,6 +81,7 @@ function InputField({
 export default function CreateInvoiceScreen() {
   const router = useRouter();
   const { getToken } = useAuth();
+  const { colors } = useTheme();
 
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -141,35 +158,87 @@ export default function CreateInvoiceScreen() {
 
   const total = calcTotal();
 
+  // Style helpers
+  const sectionTitleStyle = {
+    fontSize: 18,
+    lineHeight: 26,
+    fontFamily: 'Manrope_600SemiBold' as const,
+    fontWeight: '600' as const,
+    color: colors.inkPrimary,
+    marginBottom: 14,
+  };
+
+  const compactInputStyle = {
+    backgroundColor: colors.inputBg,
+    borderWidth: 0.5,
+    borderColor: colors.borderDefault,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 14,
+    fontFamily: 'Manrope_400Regular' as const,
+    color: colors.inkPrimary,
+  };
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView style={{ flex: 1, backgroundColor: '#F9FAFB' }} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.surfaceApp }}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* Client */}
-        <View style={{ backgroundColor: '#fff', margin: 16, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 14 }}>Client Details</Text>
+        <Card padding="default" style={{ margin: 16 }}>
+          <Text style={sectionTitleStyle}>Client Details</Text>
           <InputField label="Client Name" value={clientName} onChangeText={setClientName} placeholder="Acme Corp" required />
           <InputField label="Client Email" value={clientEmail} onChangeText={setClientEmail} placeholder="client@example.com" keyboardType="email-address" />
-        </View>
+        </Card>
 
         {/* Dates */}
-        <View style={{ backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 14 }}>Dates</Text>
+        <Card padding="default" style={{ marginHorizontal: 16 }}>
+          <Text style={sectionTitleStyle}>Dates</Text>
           <InputField label="Issue Date" value={issueDate} onChangeText={setIssueDate} placeholder="YYYY-MM-DD" required />
           <InputField label="Due Date" value={dueDate} onChangeText={setDueDate} placeholder="YYYY-MM-DD" required />
-        </View>
+        </Card>
 
         {/* Line items */}
-        <View style={{ backgroundColor: '#fff', margin: 16, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 14 }}>Line Items</Text>
+        <Card padding="default" style={{ margin: 16 }}>
+          <Text style={sectionTitleStyle}>Line Items</Text>
           {lineItems.map((item, idx) => (
-            <View key={idx} style={{
-              borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, marginBottom: 10,
-            }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>Item {idx + 1}</Text>
+            <View
+              key={idx}
+              style={{
+                backgroundColor: colors.surfaceCardElevated,
+                borderWidth: 0.5,
+                borderColor: colors.borderSubtle,
+                borderRadius: RADIUS.md,
+                padding: 12,
+                marginBottom: 10,
+              }}
+            >
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+              }}>
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.inkPrimary,
+                }}>
+                  Item {idx + 1}
+                </Text>
                 {lineItems.length > 1 && (
-                  <TouchableOpacity onPress={() => removeLineItem(idx)}>
-                    <Text style={{ color: '#DC2626', fontSize: 13, fontWeight: '600' }}>Remove</Text>
+                  <TouchableOpacity onPress={() => removeLineItem(idx)} activeOpacity={0.7}>
+                    <Text style={{
+                      color: colors.accentNegative,
+                      fontSize: 13,
+                      fontFamily: 'Manrope_600SemiBold',
+                      fontWeight: '600',
+                    }}>
+                      Remove
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>
@@ -177,33 +246,55 @@ export default function CreateInvoiceScreen() {
                 value={item.description}
                 onChangeText={(v) => updateLineItem(idx, 'description', v)}
                 placeholder="Description"
-                placeholderTextColor="#9CA3AF"
-                style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, color: '#111827', marginBottom: 8 }}
+                placeholderTextColor={colors.inkTertiary}
+                style={[compactInputStyle, { marginBottom: 8 }]}
               />
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Qty</Text>
+                  <Text style={{
+                    fontSize: 12,
+                    fontFamily: 'Manrope_400Regular',
+                    color: colors.inkSecondary,
+                    marginBottom: 4,
+                  }}>
+                    Qty
+                  </Text>
                   <TextInput
                     value={item.quantity}
                     onChangeText={(v) => updateLineItem(idx, 'quantity', v)}
                     keyboardType="decimal-pad"
-                    style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, color: '#111827' }}
+                    style={compactInputStyle}
                   />
                 </View>
                 <View style={{ flex: 2 }}>
-                  <Text style={{ fontSize: 12, color: '#6B7280', marginBottom: 4 }}>Unit Price</Text>
+                  <Text style={{
+                    fontSize: 12,
+                    fontFamily: 'Manrope_400Regular',
+                    color: colors.inkSecondary,
+                    marginBottom: 4,
+                  }}>
+                    Unit Price
+                  </Text>
                   <TextInput
                     value={item.unit_price}
                     onChangeText={(v) => updateLineItem(idx, 'unit_price', v)}
                     keyboardType="decimal-pad"
                     placeholder="0.00"
-                    placeholderTextColor="#9CA3AF"
-                    style={{ backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 9, fontSize: 14, color: '#111827' }}
+                    placeholderTextColor={colors.inkTertiary}
+                    style={compactInputStyle}
                   />
                 </View>
               </View>
               {parseFloat(item.quantity) > 0 && parseFloat(item.unit_price) > 0 && (
-                <Text style={{ fontSize: 12, color: '#0F6E56', fontWeight: '600', marginTop: 6, textAlign: 'right' }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.brandPrimary,
+                  marginTop: 6,
+                  textAlign: 'right',
+                  fontVariant: ['tabular-nums'],
+                }}>
                   {(parseFloat(item.quantity) * parseFloat(item.unit_price)).toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
                 </Text>
               )}
@@ -212,49 +303,98 @@ export default function CreateInvoiceScreen() {
 
           <TouchableOpacity
             onPress={addLineItem}
-            style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#D1D5DB', borderRadius: 10, paddingVertical: 12, alignItems: 'center' }}
+            activeOpacity={0.7}
+            style={{
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: colors.borderDefault,
+              borderRadius: RADIUS.md,
+              paddingVertical: 12,
+              alignItems: 'center',
+            }}
           >
-            <Text style={{ color: '#6B7280', fontWeight: '600', fontSize: 14 }}>+ Add Line Item</Text>
+            <Text style={{
+              color: colors.inkSecondary,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              fontSize: 14,
+            }}>
+              + Add Line Item
+            </Text>
           </TouchableOpacity>
-        </View>
+        </Card>
 
         {/* Notes */}
-        <View style={{ backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 }}>Notes (optional)</Text>
+        <Card padding="default" style={{ marginHorizontal: 16 }}>
+          <Text style={{
+            fontSize: 13,
+            fontFamily: 'Manrope_600SemiBold',
+            fontWeight: '600',
+            color: colors.inkPrimary,
+            marginBottom: 6,
+          }}>
+            Notes (optional)
+          </Text>
           <TextInput
             value={notes}
             onChangeText={setNotes}
             placeholder="Payment terms, thank you note, etc."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.inkTertiary}
             multiline
             numberOfLines={3}
             style={{
-              backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB',
-              borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11,
-              fontSize: 14, color: '#111827', minHeight: 80, textAlignVertical: 'top',
+              backgroundColor: colors.inputBg,
+              borderWidth: 0.5,
+              borderColor: colors.borderDefault,
+              borderRadius: RADIUS.md,
+              paddingHorizontal: 14,
+              paddingVertical: 11,
+              fontSize: 14,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkPrimary,
+              minHeight: 80,
+              textAlignVertical: 'top',
             }}
           />
-        </View>
+        </Card>
 
         {/* Total + Submit */}
-        <View style={{ backgroundColor: '#fff', margin: 16, borderRadius: 16, padding: 16, elevation: 1 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>Total</Text>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F6E56' }}>
+        <Card padding="default" style={{ margin: 16 }}>
+          <View style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'baseline',
+            marginBottom: 16,
+          }}>
+            <Text style={{
+              fontSize: 18,
+              lineHeight: 26,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.inkPrimary,
+            }}>
+              Total
+            </Text>
+            <Text style={{
+              fontSize: 22,
+              lineHeight: 28,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: colors.brandPrimary,
+              fontVariant: ['tabular-nums'],
+            }}>
               {total.toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
             </Text>
           </View>
-          <TouchableOpacity
+          <Button
+            label="Create Invoice"
             onPress={handleCreate}
-            disabled={saving}
-            style={{ backgroundColor: saving ? '#E5E7EB' : '#0F6E56', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
-          >
-            {saving
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={{ fontSize: 16, fontWeight: '700', color: '#fff' }}>Create Invoice</Text>
-            }
-          </TouchableOpacity>
-        </View>
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={saving}
+          />
+        </Card>
 
         <View style={{ height: 32 }} />
       </ScrollView>
