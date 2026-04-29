@@ -3,12 +3,19 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Text, TextInput,
-  TouchableOpacity, View, RefreshControl,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Pill from '../../components/ui/Pill';
 
 type Bucket =
   | 'all'
@@ -47,8 +54,15 @@ const EMPTY_BY_BUCKET: Record<Bucket, string> = {
   posted: 'No posted transactions yet. Post a classified row to land it here.',
 };
 
-const STATUS_COLOR: Record<string, string> = {
-  pending: '#D97706', classified: '#2563EB', posted: '#0F6E56', categorized: '#7C3AED', ignored: '#9CA3AF',
+type PillVariant = 'positive' | 'negative' | 'warning' | 'info' | 'neutral' | 'brand';
+
+// categorized maps to info (Path B) - no purple token in Direction B
+const STATUS_VARIANT: Record<string, PillVariant> = {
+  pending: 'warning',
+  classified: 'info',
+  posted: 'positive',
+  categorized: 'info',
+  ignored: 'neutral',
 };
 
 const LIMIT = 20;
@@ -56,21 +70,16 @@ const LIMIT = 20;
 type BucketCounts = Partial<Record<Bucket, number>>;
 
 function StatusBadge({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? '#9CA3AF';
-  return (
-    <View style={{ backgroundColor: color + '18', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 }}>
-      <Text style={{ fontSize: 11, color, fontWeight: '600', textTransform: 'capitalize' }}>{status}</Text>
-    </View>
-  );
+  const variant = STATUS_VARIANT[status] ?? 'neutral';
+  const label = status.charAt(0).toUpperCase() + status.slice(1);
+  return <Pill variant={variant} size="sm">{label}</Pill>;
 }
 
 function BizPersonalBadge({ isPersonal }: { isPersonal: boolean }) {
   return (
-    <View style={{ backgroundColor: isPersonal ? '#F3F4F6' : '#EDF7F2', borderRadius: 20, paddingHorizontal: 7, paddingVertical: 2 }}>
-      <Text style={{ fontSize: 10, fontWeight: '700', color: isPersonal ? '#9CA3AF' : '#0F6E56' }}>
-        {isPersonal ? 'P' : 'B'}
-      </Text>
-    </View>
+    <Pill variant={isPersonal ? 'neutral' : 'brand'} size="sm">
+      {isPersonal ? 'P' : 'B'}
+    </Pill>
   );
 }
 
@@ -85,7 +94,6 @@ export default function TransactionsScreen() {
   const [activeTab, setActiveTab] = useState<Bucket>('needs_review');
   const [search, setSearch] = useState('');
 
-  // Bucket counts (parallel to transactions fetch via independent react-query)
   const { data: bucketCounts, refetch: refetchCounts } = useQuery<BucketCounts>({
     queryKey: ['classification-counts', activeBusiness?.id, search],
     enabled: !!activeBusiness?.id,
@@ -139,27 +147,66 @@ export default function TransactionsScreen() {
     return (
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/transaction/[id]', params: { id: item.id, data: JSON.stringify(item) } })}
-        style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+        activeOpacity={0.7}
+        style={{
+          backgroundColor: colors.surfaceCard,
+          paddingHorizontal: 16,
+          paddingVertical: 14,
+          borderBottomWidth: 0.5,
+          borderBottomColor: colors.borderSubtle,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
       >
         <View style={{ flex: 1, marginRight: 12 }}>
-          <Text style={{ fontSize: 14, fontWeight: '600', color: colors.text }} numberOfLines={1}>
+          <Text style={{
+            fontSize: 14,
+            fontFamily: 'Manrope_600SemiBold',
+            fontWeight: '600',
+            color: colors.inkPrimary,
+          }} numberOfLines={1}>
             {item.description ?? item.raw_description ?? ''}
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, color: colors.subtext }}>{displayDate}</Text>
+            <Text style={{
+              fontSize: 12,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+              fontVariant: ['tabular-nums'],
+            }}>
+              {displayDate}
+            </Text>
             <StatusBadge status={displayStatus} />
             {mode === 'freelancer' && <BizPersonalBadge isPersonal={item.is_personal ?? false} />}
             {mode === 'personal' && item.personal_category?.name && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 {item.personal_category?.color && (
-                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.personal_category.color }} />
+                  <View style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: item.personal_category.color,
+                  }} />
                 )}
-                <Text style={{ fontSize: 11, color: colors.subtext }} numberOfLines={1}>{item.personal_category.name}</Text>
+                <Text style={{
+                  fontSize: 11,
+                  fontFamily: 'Manrope_400Regular',
+                  color: colors.inkSecondary,
+                }} numberOfLines={1}>
+                  {item.personal_category.name}
+                </Text>
               </View>
             )}
           </View>
         </View>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: isCredit ? colors.primary : colors.text }}>
+        <Text style={{
+          fontSize: 15,
+          fontFamily: 'Manrope_700Bold',
+          fontWeight: '700',
+          color: isCredit ? colors.accentPositive : colors.inkPrimary,
+          fontVariant: ['tabular-nums'],
+        }}>
           {isCredit ? '+' : ''}{Math.abs(amount).toLocaleString('en-CA', { style: 'currency', currency: 'CAD' })}
         </Text>
       </TouchableOpacity>
@@ -167,47 +214,102 @@ export default function TransactionsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <View style={{ flex: 1, backgroundColor: colors.surfaceApp }}>
       {/* Search */}
-      <View style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      <View style={{
+        backgroundColor: colors.surfaceCard,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
+      }}>
         <TextInput
-          value={search} onChangeText={setSearch}
+          value={search}
+          onChangeText={setSearch}
           placeholder="Search transactions..."
-          placeholderTextColor={colors.placeholder}
-          style={{ backgroundColor: colors.inputBg, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, color: colors.text, borderWidth: 1, borderColor: colors.inputBorder }}
+          placeholderTextColor={colors.inkTertiary}
+          style={{
+            backgroundColor: colors.inputBg,
+            borderRadius: RADIUS.md,
+            paddingHorizontal: 14,
+            paddingVertical: 9,
+            fontSize: 14,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkPrimary,
+            borderWidth: 0.5,
+            borderColor: colors.borderDefault,
+          }}
         />
       </View>
 
-      {/* Header — Needs Review count */}
-      <View style={{ backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <Text style={{ fontSize: 12, color: colors.subtext, fontWeight: '600' }}>
+      {/* Header - Needs Review count */}
+      <View style={{
+        backgroundColor: colors.surfaceCard,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
+      }}>
+        <Text style={{
+          fontSize: 12,
+          fontFamily: 'Manrope_600SemiBold',
+          fontWeight: '600',
+          color: colors.inkSecondary,
+          fontVariant: ['tabular-nums'],
+        }}>
           {needsReviewCount} needs review
         </Text>
       </View>
 
       {/* Tabs */}
-      <View style={{ flexDirection: 'row', backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      <View style={{
+        flexDirection: 'row',
+        backgroundColor: colors.surfaceCard,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
+      }}>
         {tabs.map((tab) => {
           const count = bucketCounts?.[tab] ?? 0;
           const isActive = activeTab === tab;
           const showBadge = tab !== 'all' && count > 0;
           return (
-            <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)}
-              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: isActive ? colors.primary : 'transparent' }}>
+            <TouchableOpacity
+              key={tab}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderBottomWidth: 2,
+                borderBottomColor: isActive ? colors.brandPrimary : 'transparent',
+              }}
+            >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={{ fontSize: 12, fontWeight: isActive ? '700' : '400', color: isActive ? colors.primary : colors.subtext }}>
+                <Text style={{
+                  fontSize: 12,
+                  fontFamily: isActive ? 'Manrope_700Bold' : 'Manrope_400Regular',
+                  fontWeight: isActive ? '700' : '400',
+                  color: isActive ? colors.brandPrimary : colors.inkSecondary,
+                }}>
                   {TAB_LABEL[tab]}
                 </Text>
                 {showBadge && (
                   <View style={{
-                    backgroundColor: isActive ? colors.primary + '22' : colors.border,
+                    backgroundColor: isActive ? colors.primaryLight : colors.surfaceCardElevated,
                     paddingHorizontal: 6,
                     paddingVertical: 1,
-                    borderRadius: 10,
+                    borderRadius: RADIUS.sm,
                     minWidth: 20,
                     alignItems: 'center',
                   }}>
-                    <Text style={{ fontSize: 10, fontWeight: '700', color: isActive ? colors.primary : colors.subtext }}>
+                    <Text style={{
+                      fontSize: 10,
+                      fontFamily: 'Manrope_700Bold',
+                      fontWeight: '700',
+                      color: isActive ? colors.brandPrimary : colors.inkSecondary,
+                      fontVariant: ['tabular-nums'],
+                    }}>
                       {count}
                     </Text>
                   </View>
@@ -220,7 +322,7 @@ export default function TransactionsScreen() {
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.brandPrimary} />
         </View>
       ) : (
         <FlatList
@@ -228,13 +330,19 @@ export default function TransactionsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={{ paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefreshAll} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={onRefreshAll} tintColor={colors.brandPrimary} />}
           onEndReached={() => hasNextPage && fetchNextPage()}
           onEndReachedThreshold={0.3}
-          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator color={colors.primary} style={{ padding: 16 }} /> : null}
+          ListFooterComponent={isFetchingNextPage ? <ActivityIndicator color={colors.brandPrimary} style={{ padding: 16 }} /> : null}
           ListEmptyComponent={
             <View style={{ padding: 32, alignItems: 'center' }}>
-              <Text style={{ color: colors.subtext, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+              <Text style={{
+                color: colors.inkSecondary,
+                fontSize: 14,
+                fontFamily: 'Manrope_400Regular',
+                textAlign: 'center',
+                lineHeight: 20,
+              }}>
                 {EMPTY_BY_BUCKET[activeTab]}
               </Text>
             </View>

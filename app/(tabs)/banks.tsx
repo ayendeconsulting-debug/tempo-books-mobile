@@ -3,24 +3,31 @@ import * as Linking from 'expo-linking';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
-  ActivityIndicator, Alert, FlatList,
-  RefreshControl, Text, TouchableOpacity, View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  RefreshControl,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
 import { useBusiness } from '../../lib/businessContext';
 import { useTheme } from '../../lib/themeContext';
+import { RADIUS } from '../../lib/tokens';
+import Button from '../../components/ui/Button';
 
 const WEB_APP = 'https://gettempo.ca';
 
-const STATUS_COLOR: Record<string, string> = {
-  good: '#0F6E56',
-  requires_action: '#DC2626',
-  pending: '#D97706',
-};
-
 function StatusDot({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? '#9CA3AF';
+  const { colors } = useTheme();
+  const STATUS_COLOR_MAP: Record<string, string> = {
+    good: colors.accentPositive,
+    requires_action: colors.accentNegative,
+    pending: colors.accentWarning,
+  };
+  const color = STATUS_COLOR_MAP[status] ?? colors.inkTertiary;
   return <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: color }} />;
 }
 
@@ -43,7 +50,6 @@ export default function BanksScreen() {
     },
   });
 
-  // Fetch accounts for expanded item
   const { data: expandedAccounts } = useQuery({
     queryKey: ['plaid-accounts', expandedId],
     enabled: !!expandedId,
@@ -105,55 +111,115 @@ export default function BanksScreen() {
       : 'Never';
 
     return (
-      <View style={{ backgroundColor: colors.card, marginHorizontal: 16, marginBottom: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.cardBorder, overflow: 'hidden', elevation: 1 }}>
+      <View style={{
+        backgroundColor: colors.surfaceCard,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        borderRadius: RADIUS.lg,
+        borderWidth: 0.5,
+        borderColor: colors.borderSubtle,
+        overflow: 'hidden',
+      }}>
         {/* Bank header row */}
         <TouchableOpacity
           onPress={() => setExpandedId(isExpanded ? null : item.id)}
+          activeOpacity={0.7}
           style={{ padding: 16, flexDirection: 'row', alignItems: 'center' }}
         >
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <StatusDot status={status} />
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{item.institution_name ?? 'Bank'}</Text>
+              <Text style={{
+                fontSize: 16,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+              }}>
+                {item.institution_name ?? 'Bank'}
+              </Text>
             </View>
-            <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 3 }}>
+            <Text style={{
+              fontSize: 12,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+              marginTop: 3,
+            }}>
               Last sync: {lastSync}
             </Text>
             {status === 'requires_action' && (
-              <Text style={{ fontSize: 12, color: colors.danger, marginTop: 2, fontWeight: '600' }}>
+              <Text style={{
+                fontSize: 12,
+                fontFamily: 'Manrope_600SemiBold',
+                fontWeight: '600',
+                color: colors.accentNegative,
+                marginTop: 2,
+              }}>
                 ⚠ Reconnection required
               </Text>
             )}
           </View>
-          <Text style={{ fontSize: 20, color: colors.subtext }}>{isExpanded ? '∧' : '∨'}</Text>
+          <Text style={{
+            fontSize: 20,
+            color: colors.inkSecondary,
+          }}>
+            {isExpanded ? '∧' : '∨'}
+          </Text>
         </TouchableOpacity>
 
         {/* Expanded accounts list */}
         {isExpanded && (
-          <View style={{ borderTopWidth: 1, borderTopColor: colors.divider }}>
+          <View style={{ borderTopWidth: 0.5, borderTopColor: colors.borderSubtle }}>
             {!expandedAccounts ? (
-              <ActivityIndicator color={colors.primary} style={{ padding: 16 }} />
+              <ActivityIndicator color={colors.brandPrimary} style={{ padding: 16 }} />
             ) : expandedAccounts.length === 0 ? (
-              <Text style={{ padding: 16, color: colors.subtext, fontSize: 13 }}>No accounts found</Text>
+              <Text style={{
+                padding: 16,
+                color: colors.inkSecondary,
+                fontFamily: 'Manrope_400Regular',
+                fontSize: 13,
+              }}>
+                No accounts found
+              </Text>
             ) : (
               expandedAccounts.map((acc: any) => {
                 const balance = parseFloat(acc.current_balance ?? acc.balance ?? 0);
                 return (
                   <View key={acc.id} style={{
-                    paddingHorizontal: 16, paddingVertical: 12,
-                    borderBottomWidth: 1, borderBottomColor: colors.divider,
-                    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+                    paddingHorizontal: 16,
+                    paddingVertical: 12,
+                    borderBottomWidth: 0.5,
+                    borderBottomColor: colors.borderSubtle,
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                   }}>
                     <View>
-                      <Text style={{ fontSize: 14, fontWeight: '500', color: colors.text }}>
+                      <Text style={{
+                        fontSize: 14,
+                        fontFamily: 'Manrope_600SemiBold',
+                        fontWeight: '600',
+                        color: colors.inkPrimary,
+                      }}>
                         {acc.name ?? acc.account_name}
                       </Text>
-                      <Text style={{ fontSize: 12, color: colors.subtext, marginTop: 1, textTransform: 'capitalize' }}>
+                      <Text style={{
+                        fontSize: 12,
+                        fontFamily: 'Manrope_400Regular',
+                        color: colors.inkSecondary,
+                        marginTop: 1,
+                        textTransform: 'capitalize',
+                      }}>
                         {acc.type} {acc.subtype ? `· ${acc.subtype}` : ''}
                         {acc.mask ? ` ···${acc.mask}` : ''}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: balance < 0 ? colors.danger : colors.text }}>
+                    <Text style={{
+                      fontSize: 15,
+                      fontFamily: 'Manrope_700Bold',
+                      fontWeight: '700',
+                      color: balance < 0 ? colors.accentNegative : colors.inkPrimary,
+                      fontVariant: ['tabular-nums'],
+                    }}>
                       {balance < 0 ? '-' : ''}${Math.abs(balance).toLocaleString('en-CA', { minimumFractionDigits: 2 })}
                     </Text>
                   </View>
@@ -163,21 +229,38 @@ export default function BanksScreen() {
 
             {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10, padding: 14 }}>
-              <TouchableOpacity
-                onPress={() => handleSync(item.id)}
-                disabled={isSyncing}
-                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.primaryLight, alignItems: 'center' }}
-              >
-                {isSyncing
-                  ? <ActivityIndicator color={colors.primary} size="small" />
-                  : <Text style={{ fontSize: 13, fontWeight: '600', color: colors.primary }}>↻ Sync Now</Text>
-                }
-              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Button
+                  label="↻ Sync Now"
+                  onPress={() => handleSync(item.id)}
+                  variant="tertiary"
+                  size="sm"
+                  fullWidth
+                  loading={isSyncing}
+                />
+              </View>
               <TouchableOpacity
                 onPress={() => handleDisconnect(item)}
-                style={{ flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: colors.dangerLight, alignItems: 'center' }}
+                activeOpacity={0.7}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  borderRadius: RADIUS.md,
+                  borderWidth: 0.5,
+                  borderColor: colors.accentNegative,
+                  backgroundColor: 'transparent',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
               >
-                <Text style={{ fontSize: 13, fontWeight: '600', color: colors.danger }}>Disconnect</Text>
+                <Text style={{
+                  fontSize: 13,
+                  fontFamily: 'Manrope_600SemiBold',
+                  fontWeight: '600',
+                  color: colors.accentNegative,
+                }}>
+                  Disconnect
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -187,45 +270,71 @@ export default function BanksScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surfaceApp }}>
       {/* Header */}
       <View style={{
-        backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 12,
-        borderBottomWidth: 1, borderBottomColor: colors.divider,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        backgroundColor: colors.surfaceCard,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
       }}>
-        <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>Bank Accounts</Text>
-        <TouchableOpacity
+        <Text style={{
+          fontSize: 16,
+          fontFamily: 'Manrope_700Bold',
+          fontWeight: '700',
+          color: colors.inkPrimary,
+        }}>
+          Bank Accounts
+        </Text>
+        <Button
+          label="+ Add Bank"
           onPress={() => Linking.openURL(`${WEB_APP}/banks`)}
-          style={{ backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 }}
-        >
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>+ Add Bank</Text>
-        </TouchableOpacity>
+          variant="primary"
+          size="sm"
+        />
       </View>
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.brandPrimary} />
         </View>
       ) : (
         <FlatList
           data={items ?? []}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brandPrimary} />}
           ListEmptyComponent={
             <View style={{ padding: 48, alignItems: 'center' }}>
               <Text style={{ fontSize: 36, marginBottom: 12 }}>🏦</Text>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 6 }}>No banks connected</Text>
-              <Text style={{ fontSize: 14, color: colors.subtext, textAlign: 'center', marginBottom: 24 }}>
+              <Text style={{
+                fontSize: 16,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+                marginBottom: 6,
+              }}>
+                No banks connected
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.inkSecondary,
+                textAlign: 'center',
+                marginBottom: 24,
+              }}>
                 Connect your bank to automatically import transactions
               </Text>
-              <TouchableOpacity
+              <Button
+                label="Connect a Bank"
                 onPress={() => Linking.openURL(`${WEB_APP}/banks`)}
-                style={{ backgroundColor: colors.primary, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 13 }}
-              >
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Connect a Bank</Text>
-              </TouchableOpacity>
+                variant="primary"
+                size="lg"
+              />
             </View>
           }
           renderItem={renderItem}

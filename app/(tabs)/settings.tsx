@@ -5,8 +5,14 @@ import { useSubscription } from '../../lib/useSubscription';
 import Constants from 'expo-constants';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, ScrollView, Switch,
-  Text, TouchableOpacity, View,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  ScrollView,
+  Switch,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { apiClient, setAuthToken } from '../../lib/api';
@@ -14,6 +20,8 @@ import { useBusiness } from '../../lib/businessContext';
 import { ThemeMode, useTheme } from '../../lib/themeContext';
 import * as SecureStore from 'expo-secure-store';
 import { registerForPushNotifications, clearPushToken, NOTIFICATIONS_ENABLED_KEY } from '../../lib/notifications';
+import { RADIUS } from '../../lib/tokens';
+import Pill from '../../components/ui/Pill';
 
 const WEB_APP = 'https://gettempo.ca';
 
@@ -22,37 +30,40 @@ const MODE_LABEL: Record<string, string> = {
   freelancer: 'Freelancer',
   personal: 'Personal',
 };
-const MODE_COLOR: Record<string, string> = {
-  business: '#2563EB',
-  freelancer: '#7C3AED',
-  personal: '#D97706',
+
+type PillVariant = 'positive' | 'negative' | 'warning' | 'info' | 'neutral' | 'brand';
+
+// Mode mapping (Path A): business=info, freelancer=positive, personal=brand
+const MODE_VARIANT: Record<string, PillVariant> = {
+  business: 'info',
+  freelancer: 'positive',
+  personal: 'brand',
 };
 
-const PLAN_COLOR: Record<string, string> = {
-  starter: '#6B7280',
-  pro: '#2563EB',
-  accountant: '#0F6E56',
+// Plan mapping: starter=neutral, pro=info, accountant=brand
+const PLAN_VARIANT: Record<string, PillVariant> = {
+  starter: 'neutral',
+  pro: 'info',
+  accountant: 'brand',
 };
 
 export default function SettingsScreen() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const { activeBusiness, setActiveBusiness, setBusinesses } = useBusiness();
-  const { colors, mode: themeMode, setMode: setThemeMode, isDark } = useTheme();
+  const { colors, mode: themeMode, setMode: setThemeMode } = useTheme();
   const qc = useQueryClient();
 
   const [switcherVisible, setSwitcherVisible] = useState(false);
   const [switching, setSwitching] = useState<string | null>(null);
 
-  // Clerk org list for business switcher
   const { userMemberships, setActive, isLoaded: orgsLoaded } = useOrganizationList({
     userMemberships: { infinite: true },
   });
 
-  // Subscription info — shared hook (cached per businessId across the app)
   const { data: subscription } = useSubscription();
 
-  // Push notifications toggle -- reads persisted preference on mount.
+  // Push notifications toggle - reads persisted preference on mount.
   // Default is ON: unset SecureStore value is treated as enabled so existing
   // users (who upgraded from AAB v1 and never saw the toggle) keep receiving pushes.
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -77,12 +88,11 @@ export default function SettingsScreen() {
     }
   }
 
-  async function handleSwitchBusiness(orgId: string, orgName: string) {
+  async function handleSwitchBusiness(orgId: string, _orgName: string) {
     if (!setActive) return;
     setSwitching(orgId);
     try {
       await setActive({ organization: orgId });
-      // Wait briefly for the new session to settle
       await new Promise(r => setTimeout(r, 800));
       const token = await getToken();
       setAuthToken(token);
@@ -122,11 +132,27 @@ export default function SettingsScreen() {
     return (
       <View style={{ marginBottom: 16 }}>
         {title && (
-          <Text style={{ fontSize: 12, fontWeight: '700', color: colors.subtext, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 16, marginBottom: 6 }}>
+          <Text style={{
+            fontSize: 11,
+            fontFamily: 'Manrope_600SemiBold',
+            fontWeight: '600',
+            color: colors.inkSecondary,
+            textTransform: 'uppercase',
+            letterSpacing: 1,
+            paddingHorizontal: 16,
+            marginBottom: 6,
+          }}>
             {title}
           </Text>
         )}
-        <View style={{ backgroundColor: colors.card, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.cardBorder, marginHorizontal: 16 }}>
+        <View style={{
+          backgroundColor: colors.surfaceCard,
+          borderRadius: RADIUS.lg,
+          overflow: 'hidden',
+          borderWidth: 0.5,
+          borderColor: colors.borderSubtle,
+          marginHorizontal: 16,
+        }}>
           {children}
         </View>
       </View>
@@ -139,14 +165,31 @@ export default function SettingsScreen() {
   }) {
     const content = (
       <View style={{
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 16, paddingVertical: 14,
-        borderBottomWidth: 1, borderBottomColor: colors.divider,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        borderBottomWidth: 0.5,
+        borderBottomColor: colors.borderSubtle,
       }}>
-        <Text style={{ fontSize: 15, color: destructive ? colors.danger : colors.text, fontWeight: destructive ? '600' : '400' }}>
+        <Text style={{
+          fontSize: 15,
+          fontFamily: destructive ? 'Manrope_600SemiBold' : 'Manrope_400Regular',
+          fontWeight: destructive ? '600' : '400',
+          color: destructive ? colors.accentNegative : colors.inkPrimary,
+        }}>
           {label}
         </Text>
-        {rightElement ?? (value ? <Text style={{ fontSize: 14, color: colors.subtext }}>{value}</Text> : null)}
+        {rightElement ?? (value ? (
+          <Text style={{
+            fontSize: 14,
+            fontFamily: 'Manrope_400Regular',
+            color: colors.inkSecondary,
+          }}>
+            {value}
+          </Text>
+        ) : null)}
       </View>
     );
     if (onPress) {
@@ -162,47 +205,101 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.surfaceApp }}>
       <ScrollView contentContainerStyle={{ paddingTop: 16, paddingBottom: 100 }}>
 
         {/* User card */}
-        <View style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: colors.card, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.cardBorder, flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: '#fff' }}>
+        <View style={{
+          marginHorizontal: 16,
+          marginBottom: 20,
+          backgroundColor: colors.surfaceCard,
+          borderRadius: RADIUS.lg,
+          padding: 16,
+          borderWidth: 0.5,
+          borderColor: colors.borderSubtle,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 14,
+        }}>
+          <View style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            backgroundColor: colors.brandPrimary,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: '#ffffff',
+            }}>
               {(user?.firstName ?? user?.primaryEmailAddress?.emailAddress ?? 'U')[0].toUpperCase()}
             </Text>
           </View>
           <View style={{ flex: 1 }}>
             {user?.firstName && (
-              <Text style={{ fontSize: 15, fontWeight: '700', color: colors.text }}>{user.firstName} {user.lastName ?? ''}</Text>
+              <Text style={{
+                fontSize: 15,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+              }}>
+                {user.firstName} {user.lastName ?? ''}
+              </Text>
             )}
-            <Text style={{ fontSize: 13, color: colors.subtext }}>{user?.primaryEmailAddress?.emailAddress}</Text>
+            <Text style={{
+              fontSize: 13,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkSecondary,
+            }}>
+              {user?.primaryEmailAddress?.emailAddress}
+            </Text>
           </View>
         </View>
 
         {/* Business section */}
         <Section title="Business">
-          <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: colors.divider }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: colors.text }}>{activeBusiness?.name ?? '—'}</Text>
+          <View style={{
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            borderBottomWidth: 0.5,
+            borderBottomColor: colors.borderSubtle,
+          }}>
+            <Text style={{
+              fontSize: 16,
+              fontFamily: 'Manrope_700Bold',
+              fontWeight: '700',
+              color: colors.inkPrimary,
+            }}>
+              {activeBusiness?.name ?? '—'}
+            </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
               {activeBusiness?.mode && (
-                <View style={{ backgroundColor: (MODE_COLOR[activeBusiness.mode] ?? '#9CA3AF') + '18', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 }}>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: MODE_COLOR[activeBusiness.mode] ?? '#9CA3AF' }}>
-                    {MODE_LABEL[activeBusiness.mode] ?? activeBusiness.mode}
-                  </Text>
-                </View>
+                <Pill variant={MODE_VARIANT[activeBusiness.mode] ?? 'neutral'} size="sm">
+                  {MODE_LABEL[activeBusiness.mode] ?? activeBusiness.mode}
+                </Pill>
               )}
-              <View style={{ backgroundColor: (PLAN_COLOR[plan] ?? '#9CA3AF') + '18', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3 }}>
-                <Text style={{ fontSize: 12, fontWeight: '600', color: PLAN_COLOR[plan] ?? '#9CA3AF', textTransform: 'capitalize' }}>
-                  {plan}
-                </Text>
-              </View>
+              <Pill variant={PLAN_VARIANT[plan] ?? 'neutral'} size="sm">
+                {plan.charAt(0).toUpperCase() + plan.slice(1)}
+              </Pill>
             </View>
           </View>
 
           {status === 'trialing' && daysLeft != null && (
-            <View style={{ paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.divider, backgroundColor: daysLeft <= 7 ? colors.warningLight : undefined }}>
-              <Text style={{ fontSize: 13, color: daysLeft <= 7 ? colors.warning : colors.subtext }}>
+            <View style={{
+              paddingHorizontal: 16,
+              paddingVertical: 10,
+              borderBottomWidth: 0.5,
+              borderBottomColor: colors.borderSubtle,
+              backgroundColor: daysLeft <= 7 ? colors.warningLight : 'transparent',
+            }}>
+              <Text style={{
+                fontSize: 13,
+                fontFamily: 'Manrope_400Regular',
+                color: daysLeft <= 7 ? colors.accentWarning : colors.inkSecondary,
+              }}>
                 {daysLeft > 0 ? `Trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'}` : 'Trial expired'}
               </Text>
             </View>
@@ -211,37 +308,59 @@ export default function SettingsScreen() {
           <Row
             label="Switch Business"
             onPress={() => setSwitcherVisible(true)}
-            rightElement={<Text style={{ fontSize: 18, color: colors.subtext }}>›</Text>}
+            rightElement={
+              <Text style={{ fontSize: 18, color: colors.inkSecondary }}>›</Text>
+            }
           />
         </Section>
 
         {/* Theme section */}
         <Section title="Appearance">
           <View style={{ paddingHorizontal: 16, paddingVertical: 14 }}>
-            <Text style={{ fontSize: 15, color: colors.text, marginBottom: 12 }}>Theme</Text>
+            <Text style={{
+              fontSize: 15,
+              fontFamily: 'Manrope_400Regular',
+              color: colors.inkPrimary,
+              marginBottom: 12,
+            }}>
+              Theme
+            </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
-              {themeModes.map(({ key, label, emoji }) => (
-                <TouchableOpacity
-                  key={key}
-                  onPress={() => setThemeMode(key)}
-                  style={{
-                    flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', gap: 4,
-                    backgroundColor: themeMode === key ? colors.primary : colors.badgeBg,
-                    borderWidth: themeMode === key ? 0 : 1,
-                    borderColor: colors.divider,
-                  }}
-                >
-                  <Text style={{ fontSize: 18 }}>{emoji}</Text>
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: themeMode === key ? '#fff' : colors.subtext }}>
-                    {label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {themeModes.map(({ key, label, emoji }) => {
+                const isActive = themeMode === key;
+                return (
+                  <TouchableOpacity
+                    key={key}
+                    onPress={() => setThemeMode(key)}
+                    activeOpacity={0.7}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      borderRadius: RADIUS.md,
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: isActive ? colors.brandPrimary : colors.surfaceCardElevated,
+                      borderWidth: isActive ? 0 : 0.5,
+                      borderColor: colors.borderSubtle,
+                    }}
+                  >
+                    <Text style={{ fontSize: 18 }}>{emoji}</Text>
+                    <Text style={{
+                      fontSize: 12,
+                      fontFamily: 'Manrope_600SemiBold',
+                      fontWeight: '600',
+                      color: isActive ? '#ffffff' : colors.inkSecondary,
+                    }}>
+                      {label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </View>
         </Section>
 
-        {/* Notifications section */}
+        {/* Notifications */}
         <Section title="Notifications">
           <Row
             label="Push Notifications"
@@ -249,19 +368,27 @@ export default function SettingsScreen() {
               <Switch
                 value={pushEnabled}
                 onValueChange={handleTogglePush}
-                trackColor={{ false: colors.divider, true: colors.primary }}
-                thumbColor="#fff"
+                trackColor={{ false: colors.borderDefault, true: colors.brandPrimary }}
+                thumbColor="#ffffff"
               />
             }
           />
         </Section>
 
-        {/* App section */}
+        {/* App */}
         <Section title="App">
           <Row
             label="Full Web App"
             onPress={() => Linking.openURL(WEB_APP)}
-            rightElement={<Text style={{ fontSize: 14, color: colors.primary }}>gettempo.ca ›</Text>}
+            rightElement={
+              <Text style={{
+                fontSize: 14,
+                fontFamily: 'Manrope_400Regular',
+                color: colors.brandPrimary,
+              }}>
+                gettempo.ca ›
+              </Text>
+            }
           />
           <Row label="Version" value={`v${appVersion}`} />
         </Section>
@@ -270,9 +397,24 @@ export default function SettingsScreen() {
         <View style={{ marginHorizontal: 16 }}>
           <TouchableOpacity
             onPress={handleSignOut}
-            style={{ backgroundColor: colors.dangerLight, borderRadius: 16, paddingVertical: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.danger + '40' }}
+            activeOpacity={0.7}
+            style={{
+              borderRadius: RADIUS.lg,
+              paddingVertical: 16,
+              alignItems: 'center',
+              borderWidth: 0.5,
+              borderColor: colors.accentNegative,
+              backgroundColor: 'transparent',
+            }}
           >
-            <Text style={{ fontSize: 15, fontWeight: '600', color: colors.danger }}>Sign Out</Text>
+            <Text style={{
+              fontSize: 15,
+              fontFamily: 'Manrope_600SemiBold',
+              fontWeight: '600',
+              color: colors.accentNegative,
+            }}>
+              Sign Out
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -280,21 +422,52 @@ export default function SettingsScreen() {
       {/* Business Switcher Modal */}
       <Modal visible={switcherVisible} animationType="slide" transparent onRequestClose={() => setSwitcherVisible(false)}>
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.45)' }}>
-          <View style={{ backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, maxHeight: '70%' }}>
+          <View style={{
+            backgroundColor: colors.surfaceCardElevated,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingBottom: 40,
+            maxHeight: '70%',
+          }}>
             <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
-              <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: colors.divider }} />
+              <View style={{
+                width: 40,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: colors.borderDefault,
+              }} />
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 14 }}>
-              <Text style={{ fontSize: 17, fontWeight: '700', color: colors.text }}>Switch Business</Text>
-              <TouchableOpacity onPress={() => setSwitcherVisible(false)}>
-                <Text style={{ fontSize: 15, color: colors.subtext }}>✕</Text>
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+            }}>
+              <Text style={{
+                fontSize: 17,
+                fontFamily: 'Manrope_700Bold',
+                fontWeight: '700',
+                color: colors.inkPrimary,
+              }}>
+                Switch Business
+              </Text>
+              <TouchableOpacity onPress={() => setSwitcherVisible(false)} activeOpacity={0.7}>
+                <Text style={{ fontSize: 15, color: colors.inkSecondary }}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {!orgsLoaded ? (
-              <ActivityIndicator color={colors.primary} style={{ padding: 24 }} />
+              <ActivityIndicator color={colors.brandPrimary} style={{ padding: 24 }} />
             ) : orgs.length === 0 ? (
-              <Text style={{ padding: 24, color: colors.subtext, textAlign: 'center' }}>No other businesses found</Text>
+              <Text style={{
+                padding: 24,
+                color: colors.inkSecondary,
+                fontFamily: 'Manrope_400Regular',
+                textAlign: 'center',
+              }}>
+                No other businesses found
+              </Text>
             ) : (
               orgs.map((membership: any) => {
                 const org = membership.organization;
@@ -305,26 +478,47 @@ export default function SettingsScreen() {
                     key={org.id}
                     onPress={() => !isCurrent && handleSwitchBusiness(org.id, org.name)}
                     disabled={isCurrent || !!switching}
+                    activeOpacity={0.7}
                     style={{
-                      paddingHorizontal: 24, paddingVertical: 16,
-                      borderBottomWidth: 1, borderBottomColor: colors.divider,
-                      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                      backgroundColor: isCurrent ? colors.primaryLight : undefined,
+                      paddingHorizontal: 24,
+                      paddingVertical: 16,
+                      borderBottomWidth: 0.5,
+                      borderBottomColor: colors.borderSubtle,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: isCurrent ? colors.primaryLight : 'transparent',
                     }}
                   >
                     <View>
-                      <Text style={{ fontSize: 15, fontWeight: isCurrent ? '700' : '500', color: isCurrent ? colors.primary : colors.text }}>
+                      <Text style={{
+                        fontSize: 15,
+                        fontFamily: isCurrent ? 'Manrope_700Bold' : 'Manrope_600SemiBold',
+                        fontWeight: isCurrent ? '700' : '600',
+                        color: isCurrent ? colors.brandPrimary : colors.inkPrimary,
+                      }}>
                         {org.name}
                       </Text>
                       {isCurrent && (
-                        <Text style={{ fontSize: 12, color: colors.primary, marginTop: 2 }}>Current</Text>
+                        <Text style={{
+                          fontSize: 12,
+                          fontFamily: 'Manrope_400Regular',
+                          color: colors.brandPrimary,
+                          marginTop: 2,
+                        }}>
+                          Current
+                        </Text>
                       )}
                     </View>
                     {isSwitching
-                      ? <ActivityIndicator color={colors.primary} size="small" />
+                      ? <ActivityIndicator color={colors.brandPrimary} size="small" />
                       : isCurrent
-                        ? <Text style={{ color: colors.primary, fontWeight: '700' }}>✓</Text>
-                        : <Text style={{ fontSize: 18, color: colors.subtext }}>›</Text>
+                        ? <Text style={{
+                            color: colors.brandPrimary,
+                            fontFamily: 'Manrope_700Bold',
+                            fontWeight: '700',
+                          }}>✓</Text>
+                        : <Text style={{ fontSize: 18, color: colors.inkSecondary }}>›</Text>
                     }
                   </TouchableOpacity>
                 );
