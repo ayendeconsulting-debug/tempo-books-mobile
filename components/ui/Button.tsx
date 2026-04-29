@@ -13,7 +13,7 @@ import { useTheme } from '../../lib/themeContext';
 import { RADIUS } from '../../lib/tokens';
 import type { ThemeColors } from '../../lib/tokens';
 
-type ButtonVariant = 'primary' | 'secondary' | 'tertiary';
+type ButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'warning' | 'destructive';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps {
@@ -43,6 +43,13 @@ function getButtonColors(variant: ButtonVariant, colors: ThemeColors): ButtonCol
       return { bg: colors.surfaceCard, fg: colors.inkPrimary, borderColor: colors.borderDefault };
     case 'tertiary':
       return { bg: 'transparent', fg: colors.brandPrimary, borderColor: null };
+    case 'warning':
+      // White text on the warm-amber fill is theme-independent (same exception standard as primary).
+      return { bg: colors.accentWarning, fg: '#FFFFFF', borderColor: null };
+    case 'destructive':
+      // Transparent fill with accent-negative outline + text. Same shape as the inline destructive
+      // pattern used pre-32c.3.6 (Void Invoice, Sign Out, Disconnect bank, Unclassify, Delete category).
+      return { bg: 'transparent', fg: colors.accentNegative, borderColor: colors.accentNegative };
   }
 }
 
@@ -58,8 +65,9 @@ const PRESS_DURATION = 150;
 const PRESS_SCALE = 0.96;
 
 /**
- * Button - press-animated CTA primitive for Direction B (Phase 32c.3.3).
- * Three variants (primary/secondary/tertiary), three sizes (sm/md/lg).
+ * Button - press-animated CTA primitive for Direction B.
+ * Phase 32c.3.3: primary/secondary/tertiary variants with sm/md/lg sizes.
+ * Phase 32c.3.6: added warning + destructive variants.
  * Press scale via RN core Animated (no Reanimated/babel-plugin dependency).
  * Loading state replaces label with ActivityIndicator; disabled dims to 0.5 opacity.
  */
