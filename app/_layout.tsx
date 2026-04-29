@@ -10,6 +10,7 @@ import { setAuthToken, apiClient } from '../lib/api';
 import { BusinessProvider, useBusiness } from '../lib/businessContext';
 import { ThemeProvider } from '../lib/themeContext';
 import { registerForPushNotifications, clearPushToken, setupNotificationTapHandler } from '../lib/notifications';
+import { useFonts, Manrope_400Regular, Manrope_600SemiBold, Manrope_700Bold } from '@expo-google-fonts/manrope';
 
 const CLERK_KEY = 'pk_live_Y2xlcmsuZ2V0dGVtcG8uY2Ek';
 const BUSINESS_KEY = 'active_business_json';
@@ -31,6 +32,11 @@ function AuthGate() {
   const { setActiveBusiness, setBusinesses } = useBusiness();
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'authed' | 'unauthed'>('loading');
+  const [fontsLoaded] = useFonts({
+    Manrope_400Regular,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
+  });
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -99,7 +105,7 @@ function AuthGate() {
     return cleanup;
   }, [state]);
 
-  if (state === 'loading') {
+  if (state === 'loading' || !fontsLoaded) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
         <ActivityIndicator size="large" color="#0F6E56" />
